@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "net.calvuz.quickstore"
+    namespace = "net.calvuz.qstore"
     compileSdk = 36
 
     defaultConfig {
