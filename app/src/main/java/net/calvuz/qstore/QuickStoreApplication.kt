@@ -7,7 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import net.calvuz.qstore.data.opencv.OpenCVManager
+import net.calvuz.qstore.app.data.opencv.OpenCVManager
 import javax.inject.Inject
 
 @HiltAndroidApp
