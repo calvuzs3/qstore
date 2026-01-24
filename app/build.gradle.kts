@@ -23,9 +23,10 @@ android {
     defaultConfig {
         applicationId = "net.calvuz.quickstore"
         minSdk = 33
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        targetSdk = 35
+
+        versionCode = 2
+        versionName = "One 1.2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -56,8 +57,8 @@ android {
     buildTypes {
         debug {
             isDebuggable = true
-            applicationIdSuffix = ".debug"
-            versionNameSuffix = "-debug"
+//            applicationIdSuffix = ".debug"
+//            versionNameSuffix = "-debug"
         }
 
         release {
@@ -155,10 +156,10 @@ dependencies {
 
     // OpenCV - Nota: aggiungi il modulo opencv manualmente
     // OpenCV Android SDK
-    implementation("com.quickbirdstudios:opencv:4.5.3.0")
+    implementation(libs.opencv)
 
     // Per gestione immagini
-    implementation("androidx.exifinterface:exifinterface:1.3.7")
+    implementation(libs.androidx.exifinterface)
 //    implementation(project(":opencv"))
 
     // Coil for Image Loading
@@ -168,18 +169,18 @@ dependencies {
     implementation(libs.uuid)
 
     // DataStore per le impostazioni
-    implementation("androidx.datastore:datastore-preferences:1.0.0")
+    implementation(libs.androidx.datastore.preferences)
 
     // Apache POI per Excel export
-    implementation("org.apache.poi:poi:5.2.4")
-    implementation("org.apache.poi:poi-ooxml:5.2.4")
-    implementation("org.apache.poi:poi-scratchpad:5.2.4")
+    implementation("org.apache.poi:poi:5.2.5")
+    implementation("org.apache.poi:poi-ooxml:5.2.5")
+    implementation("org.apache.poi:poi-scratchpad:5.2.5")
 
     // Per compressione e gestione XML (richiesto da POI)
-    implementation("com.fasterxml.jackson.core:jackson-core:2.15.2")
+    implementation(libs.jackson.core)
 
     // Permission handling (per accesso storage)
-    implementation("com.google.accompanist:accompanist-permissions:0.32.0")
+    implementation(libs.accompanist.permissions)
 
     // Kotlin Serialization (richiesto da Room per schema export)
     implementation(libs.kotlinx.serialization.json)
