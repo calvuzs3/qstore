@@ -20,7 +20,7 @@ import net.calvuz.qstore.data.local.entity.MovementEntity
         ArticleImageEntity::class
     ],
     version = QuickStoreDatabase.DATABASE_VERSION,
-    exportSchema = true
+    exportSchema = false
 )
 //@TypeConverters(Converters::class)
 abstract class QuickStoreDatabase: RoomDatabase() {

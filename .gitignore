@@ -65,9 +65,14 @@ lint/outputs/
 lint/tmp/
 
 # Keystore files (IMPORTANTE!)
+*.p12
 *.jks
 *.keystore
 key.properties
+keystore.properties
 
 # OpenCV (se incluso come modulo)
 opencv/build/
+
+#Publishing dir
+publishing/

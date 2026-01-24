@@ -1,9 +1,19 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.dagger.hilt.pl)
     alias(libs.plugins.ksp.pl)
+}
+
+// Carica le proprietà del keystore
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
 }
 
 android {
@@ -29,13 +39,35 @@ android {
         }
     }
 
+    // Configurazione signing
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                // Importante per file .p12
+                storeType = keystoreProperties["storeType"] as String? ?: "PKCS12"
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            isDebuggable = true
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
+
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
@@ -50,12 +82,22 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true  // Utile per controlli debug/release
     }
 
+    ksp {
+        arg("room.schemaLocation", "$projectDir/schemas")
+    }
 
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            // Esclusioni aggiuntive per evitare conflitti con POI
+            excludes += "META-INF/DEPENDENCIES"
+            excludes += "META-INF/LICENSE"
+            excludes += "META-INF/LICENSE.txt"
+            excludes += "META-INF/NOTICE"
+            excludes += "META-INF/NOTICE.txt"
         }
 
         // Evita conflitti con librerie native
@@ -138,6 +180,9 @@ dependencies {
 
     // Permission handling (per accesso storage)
     implementation("com.google.accompanist:accompanist-permissions:0.32.0")
+
+    // Kotlin Serialization (richiesto da Room per schema export)
+    implementation(libs.kotlinx.serialization.json)
 
     // Testing
     testImplementation(libs.junit)
