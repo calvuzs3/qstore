@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -433,7 +434,7 @@ private fun ArticleInfoCard(
 
             if (article.notes.isNotBlank()) {
                 InfoRow(
-                    icon = Icons.Default.Notes,
+                    icon = Icons.AutoMirrored.Default.Notes,
                     label = "Note",
                     value = article.notes
                 )
