@@ -1,4 +1,4 @@
-package net.calvuz.qstore.app.presentation.ui.settings
+package net.calvuz.qstore.settings.presentation.recognition
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -12,7 +12,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import net.calvuz.qstore.app.domain.model.RecognitionSettings
+import kotlinx.coroutines.delay
+import net.calvuz.qstore.settings.domain.model.RecognitionSettings
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -27,7 +28,7 @@ fun RecognitionSettingsScreen(
     // Gestione messaggi di stato
     LaunchedEffect(uiState.error, uiState.message) {
         if (uiState.error != null || uiState.message != null) {
-            kotlinx.coroutines.delay(3000)
+            delay(3000)
             viewModel.clearMessages()
         }
     }

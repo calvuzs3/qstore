@@ -15,8 +15,11 @@ import net.calvuz.qstore.app.presentation.ui.camera.SearchResultsScreen
 import net.calvuz.qstore.app.presentation.ui.home.HomeScreen
 import net.calvuz.qstore.app.presentation.ui.movements.add.AddMovementScreen
 import net.calvuz.qstore.app.presentation.ui.movements.list.MovementListScreen
-import net.calvuz.qstore.app.presentation.ui.settings.RecognitionSettingsScreen
+import net.calvuz.qstore.settings.presentation.recognition.RecognitionSettingsScreen
 import net.calvuz.qstore.export.presentation.ui.export.ExportScreen
+import net.calvuz.qstore.settings.presentation.SettingsScreen
+import net.calvuz.qstore.settings.presentation.about.AboutScreen
+import net.calvuz.qstore.settings.presentation.display.DisplaySettingsScreen
 
 /**
  * Sealed class per definire tutte le rotte dell'app
@@ -53,6 +56,9 @@ sealed class Screen(val route: String) {
     data object Export: Screen("exports")
 
     // Impostazioni
+    data object Settings : Screen("settings")
+    data object AboutSettings: Screen("settings/about")
+    data object DisplaySettings : Screen("settings/display")
     data object RecognitionSettings : Screen("settings/recognition")
 }
 
@@ -84,7 +90,7 @@ fun AppNavigation(
                     navController.navigate(Screen.MovementList.route)
                 },
                 onNavigateToSettings = {
-                    navController.navigate(Screen.RecognitionSettings.route)
+                    navController.navigate(Screen.Settings.route)
                 },
                 onNavigateToExport = {
                     navController.navigate(Screen.Export.route)
@@ -100,6 +106,10 @@ fun AppNavigation(
             ArticleListScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onNavigateToDisplaySettings = {
+                    navController.navigate(Screen.DisplaySettings.route)
+
                 },
                 onArticleClick = { articleId ->
                     navController.navigate(Screen.ArticleDetail.createRoute(articleId))
@@ -224,6 +234,46 @@ fun AppNavigation(
             )
         }
 
+        // ========== SETTINGS SCREEN ==========
+        composable(Screen.Settings.route) {
+            SettingsScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onNavigateToRecognition = {
+                    navController.navigate(Screen.RecognitionSettings.route )
+                },
+                onNavigateToDisplay = {
+                    navController.navigate(Screen.DisplaySettings.route)
+                },
+                onNavigateToAbout = {
+                    navController.navigate(Screen.AboutSettings.route)
+                },
+                onNavigateToData = {
+                    navController.navigate(Screen.Export.route)
+                },
+
+            )
+        }
+
+        // ========== ABOUT SETTINGS SCREEN ==========
+        composable(Screen.AboutSettings.route) {
+            AboutScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // ========== DISPLAY SETTINGS SCREEN ==========
+        composable(Screen.DisplaySettings.route) {
+            DisplaySettingsScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+            )
+        }
+
         // ========== RECOGNITION SETTINGS SCREEN ==========
         composable(Screen.RecognitionSettings.route) {
             RecognitionSettingsScreen(
@@ -233,7 +283,7 @@ fun AppNavigation(
             )
         }
 
-
+        // ========== EXPORT SCREEN ==========
         composable(Screen.Export.route) {
             ExportScreen(
                 onNavigateBack = { navController.popBackStack() }

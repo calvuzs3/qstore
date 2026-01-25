@@ -10,6 +10,8 @@ import net.calvuz.qstore.app.domain.model.ArticleCategory
 import net.calvuz.qstore.app.domain.repository.ArticleCategoryRepository
 import net.calvuz.qstore.app.domain.usecase.article.DeleteArticleUseCase
 import net.calvuz.qstore.app.domain.usecase.article.GetArticleUseCase
+import net.calvuz.qstore.settings.domain.model.DisplaySettings
+import net.calvuz.qstore.settings.domain.usecase.display.GetDisplaySettingsUseCase
 import javax.inject.Inject
 
 /**
@@ -25,6 +27,7 @@ import javax.inject.Inject
 class ArticleListViewModel @Inject constructor(
     private val getArticleUseCase: GetArticleUseCase,
     private val deleteArticleUseCase: DeleteArticleUseCase,
+    private val getDisplaySettingsUseCase: GetDisplaySettingsUseCase,
     private val categoryRepository: ArticleCategoryRepository
 ) : ViewModel() {
 
@@ -36,6 +39,13 @@ class ArticleListViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<ArticleListUiState>(ArticleListUiState.Loading)
     val uiState: StateFlow<ArticleListUiState> = _uiState.asStateFlow()
+
+    val displaySettings: StateFlow<DisplaySettings> = getDisplaySettingsUseCase()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = DisplaySettings.getDefault()
+        )
 
     // Categorie dal database
     val categories: StateFlow<List<ArticleCategory>> = categoryRepository.observeAll()

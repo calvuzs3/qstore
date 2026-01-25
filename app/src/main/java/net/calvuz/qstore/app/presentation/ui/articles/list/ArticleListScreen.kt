@@ -4,25 +4,18 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
-import net.calvuz.qstore.app.domain.model.Article
 import net.calvuz.qstore.app.domain.model.ArticleCategory
-import java.io.File
+import net.calvuz.qstore.app.presentation.navigation.Screen.DisplaySettings
+import net.calvuz.qstore.app.presentation.ui.articles.components.ArticleCard
 import kotlin.collections.isNotEmpty
 
 /**
@@ -39,6 +32,7 @@ import kotlin.collections.isNotEmpty
 @Composable
 fun ArticleListScreen(
     onNavigateBack: () -> Unit,
+    onNavigateToDisplaySettings: () -> Unit,
     onArticleClick: (String) -> Unit,
     onAddArticleClick: () -> Unit,
     viewModel: ArticleListViewModel = hiltViewModel()
@@ -48,6 +42,8 @@ fun ArticleListScreen(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val selectedCategoryId by viewModel.selectedCategoryId.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    val displaySettings by viewModel.displaySettings.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -61,6 +57,34 @@ fun ArticleListScreen(
                 actions = {
                     IconButton(onClick = { viewModel.refresh() }) {
                         Icon(Icons.Default.Refresh, "Aggiorna")
+                    }
+
+                    // Status menu
+                    var showStatusMenu by remember { mutableStateOf(false) }
+
+                    // Menu Button
+                    IconButton(onClick = { showStatusMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Default.MoreVert,
+                            contentDescription = "Menu"
+                        )
+                    }
+
+                    // Menu
+                    DropdownMenu(
+                        expanded = showStatusMenu,
+                        onDismissRequest = { showStatusMenu = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Impostazioni") },
+                            onClick = {
+                                onNavigateToDisplaySettings()
+                                showStatusMenu = false
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.Settings, contentDescription = "Impostazioni")
+                            }
+                        )
                     }
                 }
             )
@@ -149,7 +173,10 @@ fun ArticleListScreen(
                                     article = article,
                                     categoryName = viewModel.getCategoryName(article.categoryId),
                                     onClick = { onArticleClick(article.uuid) },
-                                    onDeleteClick = { viewModel.deleteArticle(article.uuid) }
+                                    onDeleteClick = { viewModel.deleteArticle(article.uuid) },
+                                    cardStyle = displaySettings.articleCardStyle,
+                                    showImage = displaySettings.showArticleImages,
+                                    showStockIndicator = displaySettings.showStockIndicators,
                                 )
                             }
                         }
@@ -241,176 +268,6 @@ private fun CategoryFilters(
         }
 
         Spacer(modifier = Modifier.height(8.dp))
-    }
-}
-
-@Composable
-private fun ArticleCard(
-    article: Article,
-    categoryName: String?,
-    onClick: () -> Unit,
-    onDeleteClick: () -> Unit
-) {
-    var showDeleteDialog by remember { mutableStateOf(false) }
-
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Elimina Articolo") },
-            text = { Text("Sei sicuro di voler eliminare '${article.name}'? Questa azione non può essere annullata.") },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        onDeleteClick()
-                        showDeleteDialog = false
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error
-                    )
-                ) {
-                    Text("Elimina")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Annulla")
-                }
-            }
-        )
-    }
-
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Foto thumbnail o icona placeholder
-            ArticleThumbnail(
-                articleId = article.uuid,
-                modifier = Modifier.size(56.dp)
-            )
-
-            // Content
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                Text(
-                    text = article.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                // Mostra il nome della categoria (non l'ID)
-                if (categoryName != null) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Category,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = categoryName,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-
-                // Mostra codici esterni se presenti
-                val codes = listOfNotNull(
-                    article.codeOEM.takeIf { it.isNotBlank() }?.let { "OEM: $it" },
-                    article.codeERP.takeIf { it.isNotBlank() }?.let { "ERP: $it" }
-                )
-                if (codes.isNotEmpty()) {
-                    Text(
-                        text = codes.joinToString(" • "),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            // Actions
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                IconButton(onClick = { showDeleteDialog = true }) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Elimina",
-                        tint = MaterialTheme.colorScheme.error
-                    )
-                }
-
-                Icon(
-                    Icons.AutoMirrored.Default.KeyboardArrowRight,
-                    contentDescription = "Dettagli",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ArticleThumbnail(
-    articleId: String,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-
-    // Cerca la prima immagine dell'articolo
-    val firstImagePath = remember(articleId) {
-        val articleDir = File(context.filesDir, "article_images/$articleId")
-        if (articleDir.exists() && articleDir.isDirectory) {
-            articleDir.listFiles()?.firstOrNull()?.let {
-                File(context.filesDir, "article_images/$articleId/${it.name}").absolutePath
-            }
-        } else {
-            null
-        }
-    }
-
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(8.dp),
-        color = if (firstImagePath != null) {
-            MaterialTheme.colorScheme.surface
-        } else {
-            MaterialTheme.colorScheme.primaryContainer
-        }
-    ) {
-        if (firstImagePath != null) {
-            AsyncImage(
-                model = File(firstImagePath),
-                contentDescription = "Foto articolo",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
-        } else {
-            Icon(
-                Icons.Default.Warehouse,
-                contentDescription = null,
-                modifier = Modifier.padding(12.dp),
-                tint = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        }
     }
 }
 

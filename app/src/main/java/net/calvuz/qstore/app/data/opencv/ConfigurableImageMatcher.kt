@@ -2,8 +2,8 @@ package net.calvuz.qstore.app.data.opencv
 
 import android.util.Log
 import kotlinx.coroutines.flow.first
-import net.calvuz.qstore.app.domain.model.RecognitionSettings
-import net.calvuz.qstore.app.domain.repository.RecognitionSettingsRepository
+import net.calvuz.qstore.settings.domain.model.RecognitionSettings
+import net.calvuz.qstore.settings.domain.repository.RecognitionSettingsRepository
 import org.opencv.core.Mat
 import org.opencv.core.MatOfDMatch
 import org.opencv.features2d.BFMatcher

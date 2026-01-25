@@ -1,4 +1,4 @@
-package net.calvuz.qstore.app.domain.model
+package net.calvuz.qstore.settings.domain.model
 
 /**
  * Configurazione parametri per il riconoscimento immagini

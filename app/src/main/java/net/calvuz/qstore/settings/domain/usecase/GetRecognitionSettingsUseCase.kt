@@ -1,9 +1,9 @@
 // ===== Use Cases per Recognition Settings =====
-package net.calvuz.qstore.app.domain.usecase.settings
+package net.calvuz.qstore.settings.domain.usecase
 
 import kotlinx.coroutines.flow.Flow
-import net.calvuz.qstore.app.domain.model.RecognitionSettings
-import net.calvuz.qstore.app.domain.repository.RecognitionSettingsRepository
+import net.calvuz.qstore.settings.domain.model.RecognitionSettings
+import net.calvuz.qstore.settings.domain.repository.RecognitionSettingsRepository
 import javax.inject.Inject
 
 /**
