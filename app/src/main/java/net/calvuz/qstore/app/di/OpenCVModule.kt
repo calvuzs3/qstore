@@ -9,7 +9,7 @@ import net.calvuz.qstore.app.data.opencv.ConfigurableImageMatcher
 import net.calvuz.qstore.app.data.opencv.FeatureExtractor
 import net.calvuz.qstore.app.data.opencv.ImageRecognitionValidator
 import net.calvuz.qstore.app.data.opencv.OpenCVManager
-import net.calvuz.qstore.app.domain.repository.RecognitionSettingsRepository
+import net.calvuz.qstore.settings.domain.repository.RecognitionSettingsRepository
 import javax.inject.Singleton
 
 /**

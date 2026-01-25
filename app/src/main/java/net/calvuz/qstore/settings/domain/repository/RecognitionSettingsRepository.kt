@@ -1,7 +1,7 @@
-package net.calvuz.qstore.app.domain.repository
+package net.calvuz.qstore.settings.domain.repository
 
 import kotlinx.coroutines.flow.Flow
-import net.calvuz.qstore.app.domain.model.RecognitionSettings
+import net.calvuz.qstore.settings.domain.model.RecognitionSettings
 
 /**
  * Repository interface per gestione impostazioni riconoscimento immagini

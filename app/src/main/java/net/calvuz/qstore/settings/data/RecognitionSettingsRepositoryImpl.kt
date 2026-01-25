@@ -1,9 +1,9 @@
-package net.calvuz.qstore.app.data.repository
+package net.calvuz.qstore.settings.data
 
 import kotlinx.coroutines.flow.Flow
 import net.calvuz.qstore.app.data.local.preferences.RecognitionSettingsDataStore
-import net.calvuz.qstore.app.domain.model.RecognitionSettings
-import net.calvuz.qstore.app.domain.repository.RecognitionSettingsRepository
+import net.calvuz.qstore.settings.domain.model.RecognitionSettings
+import net.calvuz.qstore.settings.domain.repository.RecognitionSettingsRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -33,9 +33,9 @@ class RecognitionSettingsRepositoryImpl @Inject constructor(
 
     override suspend fun applyPreset(presetName: String) {
         val settings = when (presetName) {
-            "Preciso" -> RecognitionSettings.getPresetPrecise()
-            "Bilanciato" -> RecognitionSettings.getPresetBalanced()
-            "Veloce" -> RecognitionSettings.getPresetFast()
+            "Preciso" -> RecognitionSettings.Companion.getPresetPrecise()
+            "Bilanciato" -> RecognitionSettings.Companion.getPresetBalanced()
+            "Veloce" -> RecognitionSettings.Companion.getPresetFast()
             else -> throw IllegalArgumentException("Preset non riconosciuto: $presetName")
         }
 

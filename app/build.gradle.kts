@@ -26,7 +26,7 @@ android {
         targetSdk = 35
 
         versionCode = 2
-        versionName = "One 1.2.1"
+        versionName = "1.2.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -172,9 +172,9 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
 
     // Apache POI per Excel export
-    implementation("org.apache.poi:poi:5.2.5")
-    implementation("org.apache.poi:poi-ooxml:5.2.5")
-    implementation("org.apache.poi:poi-scratchpad:5.2.5")
+    implementation(libs.poi)
+    implementation(libs.poi.ooxml)
+    implementation(libs.poi.scratchpad)
 
     // Per compressione e gestione XML (richiesto da POI)
     implementation(libs.jackson.core)

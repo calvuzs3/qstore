@@ -19,11 +19,11 @@ import net.calvuz.qstore.app.domain.repository.ArticleRepository
 import net.calvuz.qstore.app.domain.repository.ImageRecognitionRepository
 import net.calvuz.qstore.app.domain.repository.InventoryRepository
 import net.calvuz.qstore.app.domain.repository.MovementRepository
-import net.calvuz.qstore.app.domain.repository.RecognitionSettingsRepository
-import net.calvuz.qstore.app.domain.usecase.settings.ApplyRecognitionPresetUseCase
-import net.calvuz.qstore.app.domain.usecase.settings.GetRecognitionSettingsUseCase
-import net.calvuz.qstore.app.domain.usecase.settings.ResetRecognitionSettingsUseCase
-import net.calvuz.qstore.app.domain.usecase.settings.UpdateRecognitionSettingsUseCase
+import net.calvuz.qstore.settings.domain.repository.RecognitionSettingsRepository
+import net.calvuz.qstore.settings.domain.usecase.ApplyRecognitionPresetUseCase
+import net.calvuz.qstore.settings.domain.usecase.GetRecognitionSettingsUseCase
+import net.calvuz.qstore.settings.domain.usecase.ResetRecognitionSettingsUseCase
+import net.calvuz.qstore.settings.domain.usecase.UpdateRecognitionSettingsUseCase
 import javax.inject.Singleton
 
 /**

@@ -1,12 +1,12 @@
-package net.calvuz.qstore.app.presentation.ui.settings
+package net.calvuz.qstore.settings.presentation.recognition
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import net.calvuz.qstore.app.domain.model.RecognitionSettings
-import net.calvuz.qstore.app.domain.repository.RecognitionSettingsRepository
+import net.calvuz.qstore.settings.domain.model.RecognitionSettings
+import net.calvuz.qstore.settings.domain.repository.RecognitionSettingsRepository
 import net.calvuz.qstore.app.data.opencv.ImageRecognitionValidator
 import javax.inject.Inject
 
