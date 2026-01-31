@@ -1,16 +1,21 @@
-package net.calvuz.qstore.app.data.local.database
+package net.calvuz.qstore.categories.data.local
 
-import androidx.room.*
+import androidx.room.Dao
+import androidx.room.Delete
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 import net.calvuz.qstore.app.data.local.entity.ArticleCategoryEntity
 
 @Dao
 interface ArticleCategoryDao {
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.Companion.REPLACE)
     suspend fun insert(category: ArticleCategoryEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.Companion.REPLACE)
     suspend fun insertAll(categories: List<ArticleCategoryEntity>)
 
     @Update

@@ -24,7 +24,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
-import net.calvuz.qstore.app.domain.model.ArticleCategory
+import net.calvuz.qstore.categories.domain.model.ArticleCategory
 import net.calvuz.qstore.app.domain.model.ArticleImage
 import net.calvuz.qstore.app.presentation.ui.common.PhotoCaptureDialog
 
@@ -110,7 +110,9 @@ fun AddArticleScreen(
                 onRemoveCapturedImage = viewModel::onRemoveCapturedImage,
                 onRemoveSavedImage = viewModel::onRemoveSavedImage,
                 onSaveClick = viewModel::onSaveClick,
-                modifier = Modifier.padding(padding)
+                modifier = Modifier
+                    .padding(padding)
+
             )
         }
     }
@@ -146,6 +148,7 @@ private fun AddArticleContent(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
+            .imePadding()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -454,14 +457,6 @@ private fun AddArticleContent(
                 Text(if (state.isEditMode) "Aggiorna Articolo" else "Crea Articolo")
             }
         }
-
-        // Required fields note
-        Text(
-            text = "* Campo obbligatorio",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp)
-        )
     }
 }
 

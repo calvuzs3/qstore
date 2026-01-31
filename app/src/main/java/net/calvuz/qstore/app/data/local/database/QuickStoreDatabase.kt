@@ -7,6 +7,7 @@ import net.calvuz.qstore.app.data.local.entity.ArticleEntity
 import net.calvuz.qstore.app.data.local.entity.ArticleImageEntity
 import net.calvuz.qstore.app.data.local.entity.InventoryEntity
 import net.calvuz.qstore.app.data.local.entity.MovementEntity
+import net.calvuz.qstore.categories.data.local.ArticleCategoryDao
 
 /**
  * Database Room principale dell'applicazione

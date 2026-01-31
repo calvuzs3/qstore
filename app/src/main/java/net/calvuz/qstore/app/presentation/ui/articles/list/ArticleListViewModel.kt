@@ -6,10 +6,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import net.calvuz.qstore.app.domain.model.Article
-import net.calvuz.qstore.app.domain.model.ArticleCategory
-import net.calvuz.qstore.app.domain.repository.ArticleCategoryRepository
+import net.calvuz.qstore.categories.domain.model.ArticleCategory
+import net.calvuz.qstore.categories.domain.repository.ArticleCategoryRepository
 import net.calvuz.qstore.app.domain.usecase.article.DeleteArticleUseCase
 import net.calvuz.qstore.app.domain.usecase.article.GetArticleUseCase
+import net.calvuz.qstore.app.presentation.ui.articles.model.ArticleSortOrder
 import net.calvuz.qstore.settings.domain.model.DisplaySettings
 import net.calvuz.qstore.settings.domain.usecase.display.GetDisplaySettingsUseCase
 import javax.inject.Inject
@@ -37,6 +38,9 @@ class ArticleListViewModel @Inject constructor(
     private val _selectedCategoryId = MutableStateFlow<String?>(null)
     val selectedCategoryId: StateFlow<String?> = _selectedCategoryId.asStateFlow()
 
+    private val _sortOrder = MutableStateFlow(ArticleSortOrder.RECENT_UPDATED_FIRST)
+    val sortOrder: StateFlow<ArticleSortOrder> = _sortOrder.asStateFlow()
+
     private val _uiState = MutableStateFlow<ArticleListUiState>(ArticleListUiState.Loading)
     val uiState: StateFlow<ArticleListUiState> = _uiState.asStateFlow()
 
@@ -59,27 +63,10 @@ class ArticleListViewModel @Inject constructor(
     val articles: StateFlow<List<Article>> = combine(
         getArticleUseCase.observeAll(),
         _searchQuery,
-        _selectedCategoryId
-    ) { articles, query, categoryId ->
-        var filtered = articles
-
-        // Filtra per categoria (usando ID)
-        if (categoryId != null) {
-            filtered = filtered.filter { it.categoryId == categoryId }
-        }
-
-        // Filtra per search query
-        if (query.isNotBlank()) {
-            filtered = filtered.filter { article ->
-                article.name.contains(query, ignoreCase = true) ||
-                        article.description.contains(query, ignoreCase = true) ||
-                        article.codeOEM.contains(query, ignoreCase = true) ||
-                        article.codeERP.contains(query, ignoreCase = true) ||
-                        article.codeBM.contains(query, ignoreCase = true)
-            }
-        }
-
-        filtered
+        _selectedCategoryId,
+        _sortOrder
+    ) { articles, query, categoryId, sortOrder ->
+        applyFiltersAndSort( articles, query, categoryId, sortOrder)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -94,19 +81,19 @@ class ArticleListViewModel @Inject constructor(
      * Carica articoli
      */
     private fun loadArticles() {
-        viewModelScope.launch {
-            _uiState.value = ArticleListUiState.Loading
+            viewModelScope.launch {
+                _uiState.value = ArticleListUiState.Loading
 
-            getArticleUseCase.observeAll()
-                .catch { e ->
-                    _uiState.value = ArticleListUiState.Error(
-                        e.message ?: "Errore nel caricamento"
-                    )
-                }
-                .collect {
-                    _uiState.value = ArticleListUiState.Success
-                }
-        }
+                getArticleUseCase.observeAll()
+                    .catch { e ->
+                        _uiState.value = ArticleListUiState.Error(
+                            e.message ?: "Errore nel caricamento"
+                        )
+                    }
+                    .collect {
+                        _uiState.value = ArticleListUiState.Success
+                    }
+            }
     }
 
     /**
@@ -121,6 +108,13 @@ class ArticleListViewModel @Inject constructor(
      */
     fun selectCategory(categoryId: String?) {
         _selectedCategoryId.value = categoryId
+    }
+
+    /**
+     * Aggiorna ordinamento
+     */
+    fun updateSortOrder(sortOrder: ArticleSortOrder) {
+        _sortOrder.value = sortOrder
     }
 
     /**
@@ -158,7 +152,47 @@ class ArticleListViewModel @Inject constructor(
     fun getCategoryName(categoryId: String): String? {
         return categories.value.find { it.uuid == categoryId }?.name
     }
+
+    /**
+     * Applica filtri e ordinamento alla lista articoli
+     */
+    private fun applyFiltersAndSort(
+        articles: List<Article>,
+        searchQuery: String,
+        categoryId: String?,
+        sortOrder: ArticleSortOrder
+    ): List<Article> {
+        var filtered = articles
+
+        // Filtra per categoria
+        if (categoryId != null) {
+            filtered = filtered.filter { it.categoryId == categoryId }
+        }
+
+        // Filtra per search query
+        if (searchQuery.isNotBlank()) {
+            filtered = filtered.filter { article ->
+                article.name.contains(searchQuery, ignoreCase = true) ||
+                        article.description.contains(searchQuery, ignoreCase = true) ||
+                        article.codeOEM.contains(searchQuery, ignoreCase = true) ||
+                        article.codeERP.contains(searchQuery, ignoreCase = true) ||
+                        article.codeBM.contains(searchQuery, ignoreCase = true)
+            }
+        }
+
+        // Applica ordinamento
+        filtered = when (sortOrder) {
+            ArticleSortOrder.RECENT_UPDATED_FIRST -> filtered.sortedByDescending { it.updatedAt }
+            ArticleSortOrder.OLDEST_UPDATED_FIRST -> filtered.sortedBy { it.updatedAt }
+            ArticleSortOrder.NAME -> filtered.sortedBy { it.name.lowercase() }
+            ArticleSortOrder.DESCRIPTION -> filtered.sortedBy { it.description.lowercase() }
+            ArticleSortOrder.NOTES -> filtered.sortedBy { it.notes.lowercase() }
+        }
+
+        return filtered
+    }
 }
+
 
 /**
  * Stati UI per Article List

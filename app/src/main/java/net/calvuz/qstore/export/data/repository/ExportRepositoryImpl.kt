@@ -6,7 +6,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import net.calvuz.qstore.app.domain.repository.ArticleCategoryRepository
+import net.calvuz.qstore.categories.domain.repository.ArticleCategoryRepository
 import net.calvuz.qstore.app.domain.repository.ArticleRepository
 import net.calvuz.qstore.app.domain.repository.ImageRecognitionRepository
 import net.calvuz.qstore.app.domain.repository.InventoryRepository
@@ -199,7 +199,26 @@ class ExportRepositoryImpl @Inject constructor(
         }
 
         // Auto-size
-        headers.indices.forEach { sheet.autoSizeColumn(it) }
+//        headers.indices.forEach { sheet.autoSizeColumn(it) }
+
+        // Dopo (funziona su Android):
+        val columnWidths = listOf(
+            36 * 256,  // UUID
+            25 * 256,  // Nome
+            40 * 256,  // Descrizione
+            15 * 256,  // Categoria
+            10 * 256,  // Unità
+            12 * 256,  // Quantità
+            15 * 256,  // Livello Riordino
+            15 * 256,  // Codice OEM
+            15 * 256,  // Codice ERP
+            15 * 256,  // Codice BM
+            30 * 256   // Note
+        )
+        columnWidths.forEachIndexed { index, width ->
+            sheet.setColumnWidth(index, width)
+        }
+
 
         val excelFile = File(exportDir, "$baseFileName.xlsx")
         FileOutputStream(excelFile).use { workbook.write(it) }

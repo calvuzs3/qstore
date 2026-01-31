@@ -7,7 +7,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import net.calvuz.qstore.app.data.local.database.ArticleCategoryDao
+import net.calvuz.qstore.categories.data.local.ArticleCategoryDao
 import net.calvuz.qstore.app.data.local.database.ArticleDao
 import net.calvuz.qstore.app.data.local.database.ArticleImageDao
 import net.calvuz.qstore.app.data.local.database.InventoryDao
