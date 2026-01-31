@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import net.calvuz.qstore.app.domain.model.Article
-import net.calvuz.qstore.app.domain.model.ArticleCategory
+import net.calvuz.qstore.categories.domain.model.ArticleCategory
 import net.calvuz.qstore.app.domain.model.ArticleImage
 import net.calvuz.qstore.app.domain.model.Inventory
 import net.calvuz.qstore.app.domain.model.Movement

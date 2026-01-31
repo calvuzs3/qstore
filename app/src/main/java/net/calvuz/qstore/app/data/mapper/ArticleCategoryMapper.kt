@@ -1,9 +1,11 @@
 package net.calvuz.qstore.app.data.mapper
 
 import net.calvuz.qstore.app.data.local.entity.ArticleCategoryEntity
-import net.calvuz.qstore.app.domain.model.ArticleCategory
+import net.calvuz.qstore.categories.domain.model.ArticleCategory
+import net.calvuz.qstore.categories.data.mapper.toDomain
+import net.calvuz.qstore.categories.data.mapper.toEntity
 
-    fun ArticleCategoryEntity.toDomain(): ArticleCategory {
+fun ArticleCategoryEntity.toDomain(): ArticleCategory {
         return ArticleCategory(
             uuid = uuid,
             name = name,

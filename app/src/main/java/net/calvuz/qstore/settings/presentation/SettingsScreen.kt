@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -20,7 +21,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import net.calvuz.qstore.settings.presentation.components.SettingsDivider
 import net.calvuz.qstore.settings.presentation.components.SettingsNavigationItem
 import net.calvuz.qstore.settings.presentation.components.SettingsSection
 
@@ -30,8 +30,9 @@ import net.calvuz.qstore.settings.presentation.components.SettingsSection
  * Presenta un menu ad albero che naviga alle varie sotto-categorie:
  * - Aspetto & Layout
  * - Riconoscimento Immagini
- * - Dati & Backup (futuro)
- * - Informazioni App (futuro)
+ * - Categorie Articoli
+ * - Dati & Backup
+ * - Informazioni App
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,8 +40,10 @@ fun SettingsScreen(
     onNavigateBack: () -> Unit,
     onNavigateToDisplay: () -> Unit,
     onNavigateToRecognition: () -> Unit,
+    onNavigateToCategories: () -> Unit,
     onNavigateToAbout: (() -> Unit),
-    onNavigateToData: (() -> Unit)? = null  // Futuro
+    onNavigateToBackupRestore: (() -> Unit)? = null,
+    onNavigateToData: (() -> Unit)? = null
 ) {
     Scaffold(
         topBar = {
@@ -92,22 +95,29 @@ fun SettingsScreen(
                 }
             }
 
-            // === Sezione Dati (Futuro) ===
+            // === Sezione Gestione Dati ===
             item {
                 SettingsSection(
-                    title = "Dati",
-                    description = "Gestione dati e backup"
+                    title = "Gestione Dati",
+                    description = "Categorie, backup e ripristino"
                 ) {
+                    SettingsNavigationItem(
+                        icon = Icons.Default.Category,
+                        title = "Categorie Articoli",
+                        subtitle = "Gestisci le categorie del magazzino",
+                        onClick = onNavigateToCategories
+                    )
+
                     SettingsNavigationItem(
                         icon = Icons.Default.Backup,
                         title = "Backup & Ripristino",
                         subtitle = "Esporta e importa i tuoi dati",
-                        onClick = onNavigateToData ?: {}
+                        onClick = onNavigateToBackupRestore ?: {}
                     )
                 }
             }
 
-            // === Sezione Informazioni (Futuro) ===
+            // === Sezione Informazioni ===
             item {
                 SettingsSection(
                     title = "Altro"

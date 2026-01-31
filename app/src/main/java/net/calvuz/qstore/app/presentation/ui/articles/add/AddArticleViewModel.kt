@@ -13,9 +13,9 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.calvuz.qstore.app.domain.model.Article
-import net.calvuz.qstore.app.domain.model.ArticleCategory
+import net.calvuz.qstore.categories.domain.model.ArticleCategory
 import net.calvuz.qstore.app.domain.model.ArticleImage
-import net.calvuz.qstore.app.domain.repository.ArticleCategoryRepository
+import net.calvuz.qstore.categories.domain.repository.ArticleCategoryRepository
 import net.calvuz.qstore.app.domain.usecase.article.AddArticleUseCase
 import net.calvuz.qstore.app.domain.usecase.article.GetArticleUseCase
 import net.calvuz.qstore.app.domain.usecase.article.UpdateArticleUseCase

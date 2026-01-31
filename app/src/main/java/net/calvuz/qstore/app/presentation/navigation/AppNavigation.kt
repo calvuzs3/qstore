@@ -15,6 +15,9 @@ import net.calvuz.qstore.app.presentation.ui.camera.SearchResultsScreen
 import net.calvuz.qstore.app.presentation.ui.home.HomeScreen
 import net.calvuz.qstore.app.presentation.ui.movements.add.AddMovementScreen
 import net.calvuz.qstore.app.presentation.ui.movements.list.MovementListScreen
+import net.calvuz.qstore.backup.presentation.BackupRestoreScreen
+import net.calvuz.qstore.categories.presentation.ui.categories.edit.CategoryEditScreen
+import net.calvuz.qstore.categories.presentation.ui.categories.list.CategoryListScreen
 import net.calvuz.qstore.settings.presentation.recognition.RecognitionSettingsScreen
 import net.calvuz.qstore.export.presentation.ui.export.ExportScreen
 import net.calvuz.qstore.settings.presentation.SettingsScreen
@@ -47,6 +50,13 @@ sealed class Screen(val route: String) {
         fun createRoute(articleId: String) = "article/edit/$articleId"
     }
 
+    // Categorie
+    data object CategoryList : Screen("categories")
+    data object CategoryAdd : Screen("categories/add")
+    data object CategoryEdit : Screen("categories/edit/{categoryUuid}") {
+        fun createRoute(categoryUuid: String) = "categories/edit/$categoryUuid"
+    }
+
     // Movimenti
     data object AddMovement : Screen("movement/add/{articleId}") {
         fun createRoute(articleId: String) = "movement/add/$articleId"
@@ -54,6 +64,9 @@ sealed class Screen(val route: String) {
 
     // Export
     data object Export: Screen("exports")
+
+    // Backup
+    data object BackupRestore: Screen("backup")
 
     // Impostazioni
     data object Settings : Screen("settings")
@@ -249,10 +262,55 @@ fun AppNavigation(
                 onNavigateToAbout = {
                     navController.navigate(Screen.AboutSettings.route)
                 },
+                onNavigateToBackupRestore = {
+                    navController.navigate(Screen.BackupRestore.route)
+                },
                 onNavigateToData = {
                     navController.navigate(Screen.Export.route)
                 },
+                onNavigateToCategories = {
+                    navController.navigate(Screen.CategoryList.route)
+                },
+            )
+        }
 
+        // ========== CATEGORY LIST SCREEN ==========
+        composable(Screen.CategoryList.route) {
+            CategoryListScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onCategoryClick = { categoryUuid ->
+                    navController.navigate(Screen.CategoryEdit.createRoute(categoryUuid))
+                },
+                onAddCategoryClick = {
+                    navController.navigate(Screen.CategoryAdd.route)
+                }
+            )
+        }
+
+        // ========== CATEGORY ADD SCREEN ==========
+        composable(Screen.CategoryAdd.route) {
+            CategoryEditScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // ========== CATEGORY EDIT SCREEN ==========
+        composable(
+            route = Screen.CategoryEdit.route,
+            arguments = listOf(
+                navArgument("categoryUuid") {
+                    type = NavType.StringType
+                }
+            )
+        ) {
+            CategoryEditScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
             )
         }
 
@@ -286,6 +344,13 @@ fun AppNavigation(
         // ========== EXPORT SCREEN ==========
         composable(Screen.Export.route) {
             ExportScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // ========== BACKUP/RESTORE SCREEN ==========
+        composable(Screen.BackupRestore.route) {
+            BackupRestoreScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

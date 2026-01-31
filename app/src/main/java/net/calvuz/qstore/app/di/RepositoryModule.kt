@@ -9,12 +9,12 @@ import net.calvuz.qstore.app.data.mapper.ArticleImageMapper
 import net.calvuz.qstore.app.data.mapper.ArticleMapper
 import net.calvuz.qstore.app.data.mapper.InventoryMapper
 import net.calvuz.qstore.app.data.mapper.MovementMapper
-import net.calvuz.qstore.app.data.repository.ArticleCategoryRepositoryImpl
+import net.calvuz.qstore.categories.data.repository.ArticleCategoryRepositoryImpl
 import net.calvuz.qstore.app.data.repository.ArticleRepositoryImpl
 import net.calvuz.qstore.app.data.repository.ImageRecognitionRepositoryImpl
 import net.calvuz.qstore.app.data.repository.InventoryRepositoryImpl
 import net.calvuz.qstore.app.data.repository.MovementRepositoryImpl
-import net.calvuz.qstore.app.domain.repository.ArticleCategoryRepository
+import net.calvuz.qstore.categories.domain.repository.ArticleCategoryRepository
 import net.calvuz.qstore.app.domain.repository.ArticleRepository
 import net.calvuz.qstore.app.domain.repository.ImageRecognitionRepository
 import net.calvuz.qstore.app.domain.repository.InventoryRepository

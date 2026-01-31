@@ -74,5 +74,8 @@ keystore.properties
 # OpenCV (se incluso come modulo)
 opencv/build/
 
-#Publishing dir
+# Publishing dir
 publishing/
+
+# Schemas dir
+schemas/

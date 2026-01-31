@@ -1,4 +1,4 @@
-package net.calvuz.qstore.app.domain.model
+package net.calvuz.qstore.categories.domain.model
 
 data class ArticleCategory(
     val uuid: String,

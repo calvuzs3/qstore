@@ -26,7 +26,7 @@ android {
         targetSdk = 35
 
         versionCode = 2
-        versionName = "1.2.3"
+        versionName = "1.2.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -112,6 +112,12 @@ android {
 }
 
 dependencies {
+
+    // Log di Apache POI
+    configurations.all {
+        exclude(group = "org.apache.logging.log4j")
+    }
+
     // Core Android
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
@@ -175,6 +181,8 @@ dependencies {
     implementation(libs.poi)
     implementation(libs.poi.ooxml)
     implementation(libs.poi.scratchpad)
+    // Aggiungi slf4j no-op per silenziare i warning
+    implementation(libs.slf4j.nop)
 
     // Per compressione e gestione XML (richiesto da POI)
     implementation(libs.jackson.core)

@@ -32,6 +32,7 @@ poiScratchpad = "5.2.5"
 room = "2.8.4"
 cameraX = "1.4.1"
 coil = "2.7.0"
+slf4jNop = "2.0.9"
 uuid = "0.8.4"
 mockk = "1.13.13"
 
@@ -94,6 +95,7 @@ opencv = { module = "com.quickbirdstudios:opencv", version.ref = "opencv" }
 poi = { module = "org.apache.poi:poi", version.ref = "poi" }
 poi-ooxml = { module = "org.apache.poi:poi-ooxml", version.ref = "poiOoxml" }
 poi-scratchpad = { module = "org.apache.poi:poi-scratchpad", version.ref = "poiScratchpad" }
+slf4j-nop = { module = "org.slf4j:slf4j-nop", version.ref = "slf4jNop" }
 uuid = { group = "com.benasher44", name = "uuid", version.ref = "uuid" }
 
 # Testing
