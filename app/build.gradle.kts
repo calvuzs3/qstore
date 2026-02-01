@@ -26,7 +26,7 @@ android {
         targetSdk = 35
 
         versionCode = 2
-        versionName = "1.2.4"
+        versionName = "1.2.5"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -176,13 +176,6 @@ dependencies {
 
     // DataStore per le impostazioni
     implementation(libs.androidx.datastore.preferences)
-
-    // Apache POI per Excel export
-    implementation(libs.poi)
-    implementation(libs.poi.ooxml)
-    implementation(libs.poi.scratchpad)
-    // Aggiungi slf4j no-op per silenziare i warning
-    implementation(libs.slf4j.nop)
 
     // Per compressione e gestione XML (richiesto da POI)
     implementation(libs.jackson.core)

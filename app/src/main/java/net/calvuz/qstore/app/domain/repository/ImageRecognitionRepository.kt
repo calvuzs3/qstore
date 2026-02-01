@@ -27,7 +27,7 @@ interface ImageRecognitionRepository {
      * Ottiene tutte le immagini di un articolo
      */
     suspend fun getArticleImages(articleUuid: String): Result<List<ArticleImage>>
-    suspend fun getArticleImageById(imageId: Long): Result<ArticleImage?>
+    suspend fun getArticleImageByUuid(imageUuid: String): Result<ArticleImage?>
 
     /**
      * Osserva le immagini di un articolo
@@ -37,7 +37,7 @@ interface ImageRecognitionRepository {
     /**
      * Elimina un'immagine
      */
-    suspend fun deleteImage(imageId: Long): Result<Unit>
+    suspend fun deleteImage(imageUuid: String): Result<Unit>
     suspend fun deleteImages(articleUuid: String): Result<Int>
 
     /**
@@ -58,5 +58,5 @@ interface ImageRecognitionRepository {
     /**
      * Ottiene il path completo di un'immagine
      */
-    suspend fun getImagePath(imageId: Long): Result<String?>
+    suspend fun getImagePath(imageUuid: String): Result<String?>
 }

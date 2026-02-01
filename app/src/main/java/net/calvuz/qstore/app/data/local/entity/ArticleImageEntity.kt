@@ -24,9 +24,9 @@ import androidx.room.PrimaryKey
     ]
 )
 data class ArticleImageEntity(
-    @PrimaryKey(autoGenerate = true)
-    @ColumnInfo(name = "id")
-    val id: Long = 0,
+    @PrimaryKey
+    @ColumnInfo(name = "uuid")
+    val uuid: String,
 
     @ColumnInfo(name = "article_uuid")
     val articleUuid: String,
@@ -47,7 +47,7 @@ data class ArticleImageEntity(
 
         other as ArticleImageEntity
 
-        if (id != other.id) return false
+        if (uuid != other.uuid) return false
         if (articleUuid != other.articleUuid) return false
         if (imagePath != other.imagePath) return false
         if (!featuresData.contentEquals(other.featuresData)) return false
@@ -57,7 +57,7 @@ data class ArticleImageEntity(
     }
 
     override fun hashCode(): Int {
-        var result = id.hashCode()
+        var result = uuid.hashCode()
         result = 31 * result + articleUuid.hashCode()
         result = 31 * result + imagePath.hashCode()
         result = 31 * result + featuresData.contentHashCode()

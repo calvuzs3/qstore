@@ -9,7 +9,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import org.opencv.android.BaseLoaderCallback
-import org.opencv.android.LoaderCallbackInterface
 import org.opencv.android.OpenCVLoader
 import org.opencv.core.Core
 import javax.inject.Inject
@@ -34,7 +33,7 @@ class OpenCVManager @Inject constructor(
     private val loaderCallback = object : BaseLoaderCallback(context) {
         override fun onManagerConnected(status: Int) {
             when (status) {
-                LoaderCallbackInterface.SUCCESS -> {
+                SUCCESS -> {
                     Log.i(TAG, "✅ OpenCV loaded successfully via callback")
                     isInitialized = true
                     lastError = null

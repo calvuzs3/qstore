@@ -135,7 +135,7 @@ private fun AddArticleContent(
     onInitialQuantityChange: (String) -> Unit,
     onAddPhotoClick: () -> Unit,
     onRemoveCapturedImage: (String) -> Unit,
-    onRemoveSavedImage: (Long) -> Unit,
+    onRemoveSavedImage: (String) -> Unit,
     onSaveClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -466,7 +466,7 @@ private fun PhotosGrid(
     savedImages: List<ArticleImage>,
     onAddPhotoClick: () -> Unit,
     onRemoveCapturedImage: (String) -> Unit,
-    onRemoveSavedImage: (Long) -> Unit
+    onRemoveSavedImage: (String) -> Unit
 ) {
     val totalImages = capturedImages.size + savedImages.size
 
@@ -525,11 +525,11 @@ private fun PhotosGrid(
                     // Immagini già salvate nel database
                     items(
                         items = savedImages,
-                        key = { it.id }
+                        key = { it.uuid }
                     ) { savedImage ->
                         SavedImageItem(
                             savedImage = savedImage,
-                            onRemove = { onRemoveSavedImage(savedImage.id) }
+                            onRemove = { onRemoveSavedImage(savedImage.uuid) }
                         )
                     }
                 }

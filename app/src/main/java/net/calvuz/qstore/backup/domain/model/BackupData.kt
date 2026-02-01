@@ -73,7 +73,7 @@ data class MovementBackup(
 
 @Serializable
 data class ArticleImageBackup(
-    val id: Long,
+    val uuid: String,
     val articleUuid: String,
     val imagePath: String,
     /** Features OpenCV serializzate come Base64 */

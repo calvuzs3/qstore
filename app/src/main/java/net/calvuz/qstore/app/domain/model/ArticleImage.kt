@@ -6,7 +6,7 @@ package net.calvuz.qstore.app.domain.model
  * per il riconoscimento visuale.
  */
 data class ArticleImage(
-    val id: Long = 0,
+    val uuid: String,
     val articleUuid: String,
     val imagePath: String,          // Path relativo in internal storage
     val featuresData: ByteArray,    // OpenCV Mat descriptors serializzati
@@ -19,7 +19,7 @@ data class ArticleImage(
 
         other as ArticleImage
 
-        if (id != other.id) return false
+        if (uuid != other.uuid) return false
         if (articleUuid != other.articleUuid) return false
         if (imagePath != other.imagePath) return false
         if (!featuresData.contentEquals(other.featuresData)) return false
@@ -29,7 +29,7 @@ data class ArticleImage(
     }
 
     override fun hashCode(): Int {
-        var result = id.hashCode()
+        var result = uuid.hashCode()
         result = 31 * result + articleUuid.hashCode()
         result = 31 * result + imagePath.hashCode()
         result = 31 * result + featuresData.contentHashCode()

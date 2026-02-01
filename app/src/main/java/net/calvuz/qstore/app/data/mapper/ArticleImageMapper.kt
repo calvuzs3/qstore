@@ -10,7 +10,7 @@ import javax.inject.Inject
 class ArticleImageMapper @Inject constructor() {
     fun toDomain(entity: ArticleImageEntity): ArticleImage {
         return ArticleImage(
-            id = entity.id,
+            uuid = entity.uuid,
             articleUuid = entity.articleUuid,
             imagePath = entity.imagePath,
             featuresData = entity.featuresData,
@@ -20,7 +20,7 @@ class ArticleImageMapper @Inject constructor() {
 
     fun toEntity(domain: ArticleImage): ArticleImageEntity {
         return ArticleImageEntity(
-            id = domain.id,
+            uuid = domain.uuid,
             articleUuid = domain.articleUuid,
             imagePath = domain.imagePath,
             featuresData = domain.featuresData,

@@ -269,12 +269,12 @@ class AddArticleViewModel @Inject constructor(
         }
     }
 
-    fun onRemoveSavedImage(imageId: Long) {
+    fun onRemoveSavedImage(imageUuid: String) {
         viewModelScope.launch {
-            deleteArticleImageUseCase(imageId)
+            deleteArticleImageUseCase(imageUuid)
                 .onSuccess {
                     _state.update {
-                        it.copy(savedImages = it.savedImages.filter { img -> img.id != imageId })
+                        it.copy(savedImages = it.savedImages.filter { img -> img.uuid != imageUuid })
                     }
                     _events.value = AddArticleEvent.ShowSuccess("Immagine eliminata")
                 }

@@ -6,17 +6,15 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
-import net.calvuz.qstore.categories.domain.repository.ArticleCategoryRepository
 import net.calvuz.qstore.app.domain.repository.ArticleRepository
 import net.calvuz.qstore.app.domain.repository.ImageRecognitionRepository
 import net.calvuz.qstore.app.domain.repository.InventoryRepository
+import net.calvuz.qstore.categories.domain.repository.ArticleCategoryRepository
 import net.calvuz.qstore.export.domain.model.ExportFormat
 import net.calvuz.qstore.export.domain.model.ExportOptions
 import net.calvuz.qstore.export.domain.model.ExportResult
 import net.calvuz.qstore.export.domain.model.InventoryExportItem
 import net.calvuz.qstore.export.domain.repository.ExportRepository
-import org.apache.poi.ss.usermodel.CellType
-import org.apache.poi.xssf.usermodel.XSSFWorkbook
 import java.io.File
 import java.io.FileOutputStream
 import java.io.FileWriter
@@ -34,6 +32,8 @@ class ExportRepositoryImpl @Inject constructor(
     private val categoryRepository: ArticleCategoryRepository,
     private val imageRecognitionRepository: ImageRecognitionRepository
 ) : ExportRepository {
+
+    private val excelWriter = SimpleExcelWriter()
 
     override suspend fun exportInventory(options: ExportOptions): ExportResult =
         withContext(Dispatchers.IO) {
@@ -70,8 +70,7 @@ class ExportRepositoryImpl @Inject constructor(
         return articles.map { article ->
             val inventory = inventoryRepository.getByArticleUuid(article.uuid)
             val category = categoryMap[article.categoryId]
-            
-            // Carica immagini solo se richiesto
+
             val imagePaths = if (includePhotos) {
                 imageRecognitionRepository.getArticleImages(article.uuid)
                     .getOrNull()
@@ -107,7 +106,6 @@ class ExportRepositoryImpl @Inject constructor(
         val csvFile = File(exportDir, "$baseFileName.csv")
 
         FileWriter(csvFile).use { writer ->
-            // Header
             val headers = mutableListOf(
                 "UUID", "Nome", "Descrizione", "Categoria", "Unità",
                 "Quantità", "Livello Riordino",
@@ -118,7 +116,6 @@ class ExportRepositoryImpl @Inject constructor(
             }
             writer.write(headers.joinToString(";") + "\n")
 
-            // Data rows
             items.forEach { item ->
                 val row = mutableListOf(
                     escapeCSV(item.articleUuid),
@@ -153,10 +150,6 @@ class ExportRepositoryImpl @Inject constructor(
         baseFileName: String,
         includePhotos: Boolean
     ): String {
-        val workbook = XSSFWorkbook()
-        val sheet = workbook.createSheet("Inventario")
-
-        // Header
         val headers = mutableListOf(
             "UUID", "Nome", "Descrizione", "Categoria", "Unità",
             "Quantità", "Livello Riordino",
@@ -166,63 +159,28 @@ class ExportRepositoryImpl @Inject constructor(
             headers.add("Foto")
         }
 
-        val headerRow = sheet.createRow(0)
-        headers.forEachIndexed { index, header ->
-            headerRow.createCell(index).setCellValue(header)
-        }
-
-        // Data rows
-        items.forEachIndexed { rowIndex, item ->
-            val row = sheet.createRow(rowIndex + 1)
-
-            row.createCell(0).setCellValue(item.articleUuid)
-            row.createCell(1).setCellValue(item.name)
-            row.createCell(2).setCellValue(item.description)
-            row.createCell(3).setCellValue(item.categoryName)
-            row.createCell(4).setCellValue(item.unitOfMeasure)
-            row.createCell(5).apply {
-                setCellValue(item.currentQuantity)
-                cellType = CellType.NUMERIC
-            }
-            row.createCell(6).apply {
-                setCellValue(item.reorderLevel)
-                cellType = CellType.NUMERIC
-            }
-            row.createCell(7).setCellValue(item.codeOEM)
-            row.createCell(8).setCellValue(item.codeERP)
-            row.createCell(9).setCellValue(item.codeBM)
-            row.createCell(10).setCellValue(item.notes)
-
+        val rows = items.map { item ->
+            val row = mutableListOf<Any?>(
+                item.articleUuid,
+                item.name,
+                item.description,
+                item.categoryName,
+                item.unitOfMeasure,
+                item.currentQuantity,
+                item.reorderLevel,
+                item.codeOEM,
+                item.codeERP,
+                item.codeBM,
+                item.notes
+            )
             if (includePhotos) {
-                row.createCell(11).setCellValue(item.imagePaths.joinToString(", "))
+                row.add(item.imagePaths.joinToString(", "))
             }
+            row
         }
-
-        // Auto-size
-//        headers.indices.forEach { sheet.autoSizeColumn(it) }
-
-        // Dopo (funziona su Android):
-        val columnWidths = listOf(
-            36 * 256,  // UUID
-            25 * 256,  // Nome
-            40 * 256,  // Descrizione
-            15 * 256,  // Categoria
-            10 * 256,  // Unità
-            12 * 256,  // Quantità
-            15 * 256,  // Livello Riordino
-            15 * 256,  // Codice OEM
-            15 * 256,  // Codice ERP
-            15 * 256,  // Codice BM
-            30 * 256   // Note
-        )
-        columnWidths.forEachIndexed { index, width ->
-            sheet.setColumnWidth(index, width)
-        }
-
 
         val excelFile = File(exportDir, "$baseFileName.xlsx")
-        FileOutputStream(excelFile).use { workbook.write(it) }
-        workbook.close()
+        excelWriter.writeExcel(excelFile, "Inventario", headers, rows)
 
         return if (includePhotos && items.any { it.imagePaths.isNotEmpty() }) {
             createZipWithPhotos(excelFile, items, exportDir, baseFileName)
@@ -240,12 +198,10 @@ class ExportRepositoryImpl @Inject constructor(
         val zipFile = File(exportDir, "$baseFileName.zip")
 
         ZipOutputStream(FileOutputStream(zipFile)).use { zipOut ->
-            // Add data file
             zipOut.putNextEntry(ZipEntry(dataFile.name))
             dataFile.inputStream().use { it.copyTo(zipOut) }
             zipOut.closeEntry()
 
-            // Add photos
             val addedPhotos = mutableSetOf<String>()
             items.forEach { item ->
                 item.imagePaths.forEach { imagePath ->

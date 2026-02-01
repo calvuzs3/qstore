@@ -77,7 +77,7 @@ class BackupSerializer @Inject constructor() {
     
     fun mapArticleImage(entity: ArticleImageEntity): ArticleImageBackup {
         return ArticleImageBackup(
-            id = entity.id,
+            uuid = entity.uuid,
             articleUuid = entity.articleUuid,
             imagePath = entity.imagePath,
             featuresDataBase64 = Base64.encodeToString(entity.featuresData, Base64.NO_WRAP),
@@ -163,7 +163,7 @@ class BackupSerializer @Inject constructor() {
     
     fun mapToArticleImage(backup: ArticleImageBackup): ArticleImageEntity {
         return ArticleImageEntity(
-            id = backup.id,
+            uuid = backup.uuid,
             articleUuid = backup.articleUuid,
             imagePath = backup.imagePath,
             featuresData = Base64.decode(backup.featuresDataBase64, Base64.NO_WRAP),
