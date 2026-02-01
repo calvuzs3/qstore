@@ -14,6 +14,7 @@ import net.calvuz.qstore.app.data.local.database.InventoryDao
 import net.calvuz.qstore.app.data.local.database.MovementDao
 import net.calvuz.qstore.app.data.local.database.QuickStoreDatabase
 import net.calvuz.qstore.app.data.local.database.migration.MIGRATION_1_2
+import net.calvuz.qstore.app.data.local.database.migration.MIGRATION_2_3
 import javax.inject.Singleton
 
 /**
@@ -35,6 +36,7 @@ object DatabaseModule {
         )
             //.fallbackToDestructiveMigration() // Solo per sviluppo, rimuovere in produzione
             .addMigrations(MIGRATION_1_2)
+            .addMigrations(MIGRATION_2_3)
             .build()
     }
 

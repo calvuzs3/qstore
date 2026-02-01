@@ -31,7 +31,6 @@ import androidx.compose.material.icons.filled.Web
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import net.calvuz.qstore.R
 import net.calvuz.qstore.settings.presentation.components.SettingsNavigationItem
 import net.calvuz.qstore.settings.presentation.components.SettingsSection
+import androidx.core.net.toUri
 
 /**
  * Schermata Informazioni App.
@@ -350,33 +350,25 @@ data class AppInfo(
  */
 private fun getAppInfo(context: Context): AppInfo {
     return try {
-        val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        val packageInfo =
             context.packageManager.getPackageInfo(
                 context.packageName,
                 PackageManager.PackageInfoFlags.of(0)
             )
-        } else {
-            @Suppress("DEPRECATION")
-            context.packageManager.getPackageInfo(context.packageName, 0)
-        }
 
-        val versionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        val versionCode =
             packageInfo.longVersionCode
-        } else {
-            @Suppress("DEPRECATION")
-            packageInfo.versionCode.toLong()
-        }
 
         AppInfo(
             packageName = context.packageName,
             versionName = packageInfo.versionName ?: "Unknown",
             versionCode = versionCode
         )
-    } catch (e: PackageManager.NameNotFoundException) {
+    } catch (_: PackageManager.NameNotFoundException) {
         // Fallback con valori hardcoded
         AppInfo(
             packageName = "net.calvuz.qstore",
-            versionName = "One 1.2.1",
+            versionName = "1.2.5",
             versionCode = 2
         )
     }
@@ -407,7 +399,7 @@ private fun getAndroidVersionName(): String {
  */
 private fun openEmail(context: Context, email: String, subject: String) {
     val intent = Intent(Intent.ACTION_SENDTO).apply {
-        data = Uri.parse("mailto:")
+        data = "mailto:".toUri()
         putExtra(Intent.EXTRA_EMAIL, arrayOf(email))
         putExtra(Intent.EXTRA_SUBJECT, subject)
     }
@@ -420,7 +412,7 @@ private fun openEmail(context: Context, email: String, subject: String) {
  * Apre un URL nel browser.
  */
 private fun openUrl(context: Context, url: String) {
-    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+    val intent = Intent(Intent.ACTION_VIEW, url.toUri())
     if (intent.resolveActivity(context.packageManager) != null) {
         context.startActivity(intent)
     }

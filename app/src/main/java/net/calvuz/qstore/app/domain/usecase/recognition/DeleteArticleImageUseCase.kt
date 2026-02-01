@@ -19,18 +19,18 @@ class DeleteArticleImageUseCase @Inject constructor(
     /**
      * Elimina un'immagine per ID
      *
-     * @param imageId ID dell'immagine da eliminare
+     * @param imageUuid ID dell'immagine da eliminare
      * @return Result<Unit> Success se eliminata o Failure
      */
-    suspend operator fun invoke(imageId: Long): Result<Unit> {
+    suspend operator fun invoke(imageUuid: String): Result<Unit> {
         return try {
             // Validazione input
-            if (imageId <= 0) {
-                return Result.failure(IllegalArgumentException("ID immagine non valido: $imageId"))
+            if (imageUuid.isBlank()) {
+                return Result.failure(IllegalArgumentException("UUID immagine vuoto: $imageUuid"))
             }
 
             // Elimina immagine
-            imageRecognitionRepository.deleteImage(imageId)
+            imageRecognitionRepository.deleteImage(imageUuid)
 
         } catch (e: Exception) {
             Result.failure(e)

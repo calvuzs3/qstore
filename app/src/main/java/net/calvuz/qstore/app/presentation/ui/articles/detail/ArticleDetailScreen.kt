@@ -183,7 +183,7 @@ private fun ArticleDetailContent(
     inventory: Inventory?,
     movements: List<Movement>,
     images: List<ArticleImage>,
-    onDeleteImage: (Long) -> Unit,
+    onDeleteImage: (String) -> Unit,
     modifier: Modifier = Modifier,
     onRefresh: () -> Unit
 ) {
@@ -263,7 +263,7 @@ private fun ArticleDetailContent(
 @Composable
 private fun PhotoGallerySection(
     images: List<ArticleImage>,
-    onDeleteImage: (Long) -> Unit
+    onDeleteImage: (String) -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf<ArticleImage?>(null) }
 
@@ -298,7 +298,7 @@ private fun PhotoGallerySection(
             ) {
                 items(
                     items = images,
-                    key = { it.id }
+                    key = { it.uuid }
                 ) { image ->
                     PhotoGridItem(
                         image = image,
@@ -319,7 +319,7 @@ private fun PhotoGallerySection(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        onDeleteImage(image.id)
+                        onDeleteImage(image.uuid)
                         showDeleteDialog = null
                     },
                     colors = ButtonDefaults.textButtonColors(

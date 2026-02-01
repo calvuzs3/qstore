@@ -119,7 +119,7 @@ class CameraViewModel @Inject constructor(
 
             saveArticleImageUseCase(articleUuid, imageBytes)
                 .onSuccess { savedImage ->
-                    _uiState.value = CameraUiState.SaveSuccess(savedImage.id)
+                    _uiState.value = CameraUiState.SaveSuccess(savedImage.uuid)
                 }
                 .onFailure { error ->
                     _uiState.value = CameraUiState.Error(
@@ -269,7 +269,7 @@ sealed class CameraUiState {
     ) : CameraUiState()
 
     /** Salvataggio completato */
-    data class SaveSuccess(val imageId: Long) : CameraUiState()
+    data class SaveSuccess(val imageUuid: String) : CameraUiState()
 
     /** Errore */
     data class Error(val message: String) : CameraUiState()

@@ -34,6 +34,6 @@ abstract class QuickStoreDatabase: RoomDatabase() {
 
     companion object {
         const val DATABASE_NAME = "warehouse_db"
-        const val DATABASE_VERSION = 2
+        const val DATABASE_VERSION = 3
     }
 }

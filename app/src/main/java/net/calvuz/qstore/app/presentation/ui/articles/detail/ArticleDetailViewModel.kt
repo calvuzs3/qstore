@@ -155,14 +155,14 @@ class ArticleDetailViewModel @Inject constructor(
         }
     }
 
-    fun onDeleteImage(imageId: Long) {
+    fun onDeleteImage(imageUuid: String) {
         viewModelScope.launch {
-            deleteArticleImageUseCase(imageId)
+            deleteArticleImageUseCase(imageUuid)
                 .onSuccess {
                     // Rimuovi immagine dallo stato
                     _state.update {
                         it.copy(
-                            images = it.images.filter { img -> img.id != imageId }
+                            images = it.images.filter { img -> img.uuid != imageUuid }
                         )
                     }
                 }

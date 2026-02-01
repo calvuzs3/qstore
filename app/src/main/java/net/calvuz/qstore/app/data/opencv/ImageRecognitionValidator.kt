@@ -239,11 +239,11 @@ class ImageRecognitionValidator @Inject constructor(
                         validImages++
                     } else {
                         corruptedImages++
-                        issues.add("Immagine corrotta: ID ${image.id}")
+                        issues.add("Immagine corrotta: ID ${image.uuid}")
                     }
                 } catch (e: Exception) {
                     corruptedImages++
-                    issues.add("Errore immagine ID ${image.id}: ${e.message}")
+                    issues.add("Errore immagine ID ${image.uuid}: ${e.message}")
                 }
             }
 

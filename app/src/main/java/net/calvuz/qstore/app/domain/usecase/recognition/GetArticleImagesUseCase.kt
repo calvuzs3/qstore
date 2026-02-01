@@ -56,18 +56,18 @@ class GetArticleImagesUseCase @Inject constructor(
     /**
      * Recupera una singola immagine per ID
      *
-     * @param imageId ID dell'immagine
+     * @param imageUuid ID dell'immagine
      * @return Result<ArticleImage?> Immagine o null se non esiste
      */
-    suspend fun getById(imageId: Long): Result<ArticleImage?> {
+    suspend fun getByUuid(imageUuid: String): Result<ArticleImage?> {
         return try {
             // Validazione input
-            if (imageId <= 0) {
-                return Result.failure(IllegalArgumentException("ID immagine non valido: $imageId"))
+            if (imageUuid.isBlank()) {
+                return Result.failure(IllegalArgumentException("UUID immagine non valido"))
             }
 
             // Recupera immagine singola
-            imageRecognitionRepository.getArticleImageById(imageId)
+            imageRecognitionRepository.getArticleImageByUuid(imageUuid)
 
         } catch (e: Exception) {
             Result.failure(e)

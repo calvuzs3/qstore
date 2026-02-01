@@ -12,6 +12,7 @@ import net.calvuz.qstore.app.data.opencv.FeatureExtractor
 import net.calvuz.qstore.app.data.opencv.OpenCVManager
 import net.calvuz.qstore.app.domain.model.ArticleImage
 import net.calvuz.qstore.app.domain.repository.ImageRecognitionRepository
+import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -36,11 +37,14 @@ class ImageRecognitionRepositoryImpl @Inject constructor(
                 return Result.failure(IllegalStateException("OpenCV not initialized"))
             }
 
-            // 1. Salva immagine su file system
+            // 1. Genera UUID per la nuova immagine
+            val imageUuid = UUID.randomUUID().toString()
+
+            // 2. Salva immagine su file system
             val imagePath = imageStorageManager.saveImage(imageData, articleUuid)
                 .getOrElse { return Result.failure(it) }
 
-            // 2. Estrai features OpenCV
+            // 3. Estrai features OpenCV
             val featuresData = featureExtractor.extractFeatures(imageData)
                 .getOrElse {
                     // Cleanup: elimina immagine se estrazione fallisce
@@ -48,19 +52,19 @@ class ImageRecognitionRepositoryImpl @Inject constructor(
                     return Result.failure(it)
                 }
 
-            // 3. Crea entity e salva su database
+            // 4. Crea entity e salva su database
             val entity = ArticleImageEntity(
+                uuid = imageUuid,
                 articleUuid = articleUuid,
                 imagePath = imagePath,
                 featuresData = featuresData,
-                createdAt = System.currentTimeMillis()
+                 createdAt = System.currentTimeMillis()
             )
 
-            val imageId = articleImageDao.insert(entity)
+            articleImageDao.insert(entity)
 
-            // 4. Ritorna domain model con ID generato
-            val savedEntity = entity.copy(id = imageId)
-            val articleImage = mapper.toDomain(savedEntity)
+            // 5. Ritorna domain model
+            val articleImage = mapper.toDomain(entity)
 
             Result.success(articleImage)
 
@@ -78,9 +82,9 @@ class ImageRecognitionRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
-    override suspend fun getArticleImageById(imageId: Long): Result<ArticleImage?> {
+    override suspend fun getArticleImageByUuid(imageUuid: String): Result<ArticleImage?> {
         return try {
-            val entity = articleImageDao.getById(imageId)
+            val entity = articleImageDao.getByUuid(imageUuid)
             val domainModel = entity?.let { mapper.toDomain(it) }
             Result.success(domainModel)
         } catch (e: Exception) {
@@ -94,9 +98,9 @@ class ImageRecognitionRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun deleteImage(imageId: Long): Result<Unit> {
+    override suspend fun deleteImage(imageUuid: String): Result<Unit> {
         return try {
-            val image = articleImageDao.getById(imageId)
+            val image = articleImageDao.getByUuid(imageUuid)
             if (image != null) {
                 // Elimina file fisico
                 imageStorageManager.deleteImage(image.imagePath)
@@ -177,10 +181,10 @@ class ImageRecognitionRepositoryImpl @Inject constructor(
             val databaseDescriptors = allImages.mapNotNull { image ->
                 featureExtractor.deserializeDescriptors(image.featuresData)
                     .onSuccess {
-                        Log.d("ImageSearch", "  ✓ Image ${image.id}: ${it.rows()} features")
+                        Log.d("ImageSearch", "  ✓ Image ${image.uuid}: ${it.rows()} features")
                     }
                     .onFailure {
-                        Log.e("ImageSearch", "  ✗ Image ${image.id}: Failed to deserialize")
+                        Log.e("ImageSearch", "  ✗ Image ${image.uuid}: Failed to deserialize")
                     }
                     .getOrNull()
             }
@@ -223,9 +227,9 @@ class ImageRecognitionRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getImagePath(imageId: Long): Result<String?> {
+    override suspend fun getImagePath(imageUuid: String): Result<String?> {
         return try {
-            val image = articleImageDao.getById(imageId)
+            val image = articleImageDao.getByUuid(imageUuid)
             val fullPath = image?.let {
                 imageStorageManager.getFullPath(it.imagePath)
             }

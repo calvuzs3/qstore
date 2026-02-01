@@ -357,13 +357,10 @@ class BackupRepositoryImpl @Inject constructor(
             
             progressCallback("Ripristino immagini articoli...", 0.65f)
             articleImages.forEach { image ->
-                // Nota: non usiamo insertAll perché dobbiamo gestire gli ID
-                // Room con autoGenerate gestirà i nuovi ID
                 val entity = serializer.mapToArticleImage(image)
-                // Impostiamo id=0 per far generare un nuovo ID
-                articleImageDao.insert(entity.copy(id = 0))
+                articleImageDao.insert(entity)
             }
-            
+
             progressCallback("Ripristino movimenti...", 0.70f)
             movements.forEach { movement ->
                 movementDao.insert(serializer.mapToMovement(movement).copy(id = 0))

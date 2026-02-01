@@ -11,7 +11,10 @@ import net.calvuz.qstore.app.data.local.entity.ArticleImageEntity
 interface ArticleImageDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
-    suspend fun insert(image: ArticleImageEntity): Long
+    suspend fun insert(image: ArticleImageEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertOrReplace(image: ArticleImageEntity)
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertAll(images: List<ArticleImageEntity>)
@@ -19,14 +22,14 @@ interface ArticleImageDao {
     @Delete
     suspend fun delete(image: ArticleImageEntity)
 
-    @Query("DELETE FROM article_images WHERE id = :imageId")
-    suspend fun deleteById(imageId: Long)
+    @Query("DELETE FROM article_images WHERE uuid = :uuid")
+    suspend fun deleteByUuid(uuid: String)
 
     @Query("SELECT * FROM article_images")
     suspend fun getAll(): List<ArticleImageEntity>
 
-    @Query("SELECT * FROM article_images WHERE id = :imageId")
-    suspend fun getById(imageId: Long): ArticleImageEntity?
+    @Query("SELECT * FROM article_images WHERE uuid = :uuid")
+    suspend fun getByUuid(uuid: String): ArticleImageEntity?
 
     @Query("SELECT * FROM article_images WHERE article_uuid = :articleUuid")
     suspend fun getByArticleUuid(articleUuid: String): List<ArticleImageEntity>
