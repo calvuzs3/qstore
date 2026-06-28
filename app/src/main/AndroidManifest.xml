@@ -16,6 +16,10 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
+    <!-- Permesso dichiarato da QuickStore: solo app firmate con lo stesso certificato possono leggere il catalogo -->
+    <permission
+        android:name="net.calvuz.qstore.permission.READ_ARTICLES"
+        android:protectionLevel="signature" />
 
     <application
         android:name=".QuickStoreApplication"
@@ -39,6 +43,24 @@
             </intent-filter>
         </activity>
 
+
+        <!-- Picker: selettore articoli lanciato da QReport via ActivityResultLauncher -->
+        <activity
+            android:name=".picker.ArticlePickerActivity"
+            android:exported="true"
+            android:theme="@style/Theme.QuickStore">
+            <intent-filter>
+                <action android:name="net.calvuz.qstore.action.PICK_ARTICLES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <!-- ContentProvider catalogo articoli per QReport -->
+        <provider
+            android:name=".provider.QStoreArticleProvider"
+            android:authorities="net.calvuz.qstore.provider"
+            android:exported="true"
+            android:readPermission="net.calvuz.qstore.permission.READ_ARTICLES" />
 
         <provider
             android:name="androidx.core.content.FileProvider"
