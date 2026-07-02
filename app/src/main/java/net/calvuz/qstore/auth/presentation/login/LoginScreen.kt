@@ -47,7 +47,6 @@ import net.calvuz.qstore.auth.domain.model.OrganizationChoice
 @Composable
 fun LoginScreen(
     onNavigateBack: () -> Unit,
-    onLoggedIn: () -> Unit,
     viewModel: LoginViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -55,18 +54,23 @@ fun LoginScreen(
 
     LaunchedEffect(uiState) {
         when (val state = uiState) {
-            is LoginUiState.JustLoggedIn -> {
-                snackbarHostState.showSnackbar("Login riuscito", duration = SnackbarDuration.Short)
-                onLoggedIn()
-            }
             is LoginUiState.LoginForm -> state.error?.let {
                 snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
             }
             is LoginUiState.OrgSelection -> state.error?.let {
                 snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
             }
-            is LoginUiState.AlreadyLoggedIn -> state.syncMessage?.let {
-                snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
+            is LoginUiState.AlreadyLoggedIn -> {
+                // Resta su questa schermata dopo il login (niente navigazione automatica):
+                // i pulsanti Sincronizza/Disconnetti devono comparire subito, non solo
+                // tornando indietro e rientrando in Account.
+                if (state.justLoggedIn) {
+                    snackbarHostState.showSnackbar("Login riuscito", duration = SnackbarDuration.Short)
+                    viewModel.clearJustLoggedIn()
+                }
+                state.syncMessage?.let {
+                    snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
+                }
             }
         }
     }
@@ -103,7 +107,6 @@ fun LoginScreen(
                 onLogout = viewModel::logout,
                 onSyncNow = viewModel::syncNow
             )
-            LoginUiState.JustLoggedIn -> Unit // gestito da onLoggedIn sopra
         }
     }
 }

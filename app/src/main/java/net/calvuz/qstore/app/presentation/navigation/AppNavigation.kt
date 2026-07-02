@@ -296,8 +296,7 @@ fun AppNavigation(
         // ========== LOGIN SCREEN ==========
         composable(Screen.Login.route) {
             LoginScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onLoggedIn = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

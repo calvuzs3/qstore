@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import net.calvuz.qstore.app.data.opencv.OpenCVManager
+import timber.log.Timber
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -21,6 +22,10 @@ class QuickStoreApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())
+        }
 
         Log.d(TAG, "🚀 QuickStore Application Starting...")
 
