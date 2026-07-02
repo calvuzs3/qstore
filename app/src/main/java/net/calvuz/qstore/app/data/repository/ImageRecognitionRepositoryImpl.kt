@@ -102,14 +102,15 @@ class ImageRecognitionRepositoryImpl @Inject constructor(
         return try {
             val image = articleImageDao.getByUuid(imageUuid)
             if (image != null) {
-                // Elimina file fisico
+                // Elimina subito il file fisico (nessuna ragione di tenerlo su questo
+                // device per una foto cancellata) — la riga DB resta come tombstone
+                // (soft-delete) finché non viene propagata al server al prossimo push.
                 imageStorageManager.deleteImage(image.imagePath)
                     .getOrElse {
                         // Log warning ma continua comunque
                     }
 
-                // Elimina da database
-                articleImageDao.delete(image)
+                articleImageDao.markDeleted(imageUuid, System.currentTimeMillis())
                 Result.success(Unit)
             } else {
                 Result.failure(IllegalArgumentException("Image not found"))
@@ -129,10 +130,11 @@ class ImageRecognitionRepositoryImpl @Inject constructor(
                 imageStorageManager.deleteImage(image.imagePath)
             }
 
-            // Elimina da DB
-            val deletedCount = articleImageDao.deleteByArticleUuid(articleUuid)
+            // Soft-delete in DB, non più un DELETE fisico — propaga la cancellazione al
+            // server al prossimo push.
+            articleImageDao.markAllDeletedByArticleUuid(articleUuid, System.currentTimeMillis())
 
-            Result.success(deletedCount)
+            Result.success(images.size)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -167,8 +169,10 @@ class ImageRecognitionRepositoryImpl @Inject constructor(
                 }
             Log.d("ImageSearch", "✅ Query descriptors: ${queryDescriptors.rows()} features")
 
-            // 2. Ottieni tutte le immagini salvate
-            val allImages = articleImageDao.getAll()
+            // 2. Ottieni tutte le immagini salvate — getAll() non filtra is_deleted (serve
+            // anche a sync/worker per vedere i tombstone), va escluso qui: non ha senso
+            // far corrispondere una foto cancellata durante il riconoscimento.
+            val allImages = articleImageDao.getAll().filter { !it.isDeleted }
             Log.d("ImageSearch", "📦 Database images: ${allImages.size}")
 
             if (allImages.isEmpty()) {

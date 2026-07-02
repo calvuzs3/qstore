@@ -25,7 +25,9 @@ class ArticleCategoryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getByUuid(uuid: String): ArticleCategory? {
-        return categoryDao.getByUuid(uuid)?.toDomain()
+        // getByUuid del DAO non filtra is_deleted (serve anche al sync per il LWW su pull) —
+        // va escluso qui: una categoria cancellata non deve comparire lato app.
+        return categoryDao.getByUuid(uuid)?.takeIf { !it.isDeleted }?.toDomain()
     }
 
     override suspend fun getByName(name: String): ArticleCategory? {
@@ -75,7 +77,7 @@ class ArticleCategoryRepositoryImpl @Inject constructor(
                         )
                     )
                 } else {
-                    categoryDao.delete(category)
+                    categoryDao.markDeleted(uuid, System.currentTimeMillis())
                     Result.success(Unit)
                 }
             } else {

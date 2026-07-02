@@ -346,3 +346,32 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
     }
 }
 
+/**
+ * Migration da versione 6 a 7 - Propagazione delle cancellazioni locali → server
+ *
+ * Aggiunge is_deleted a article_categories, articles, locations,
+ * article_location_thresholds, article_images: una cancellazione locale diventa un
+ * soft-delete (is_deleted=1, updated_at=now) invece di un DELETE fisico, così viene
+ * raccolta dalla stessa query di push già esistente (WHERE updated_at > cursore) e
+ * propagata al server — che già sa gestire isDeleted in arrivo (vedi
+ * quickstore-server SyncServerRepository). movements resta escluso deliberatamente:
+ * è un log append-only, non ha senso "cancellarlo" nello stesso modo.
+ *
+ * article_images guadagna anche una vera colonna updated_at (prima si usava created_at
+ * come proxy per il dirty-tracking, che non può rappresentare una cancellazione senza
+ * corrompere il vero istante di creazione) — backfillata da created_at per le righe
+ * esistenti.
+ */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL("ALTER TABLE article_categories ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0")
+        database.execSQL("ALTER TABLE articles ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0")
+        database.execSQL("ALTER TABLE locations ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0")
+        database.execSQL("ALTER TABLE article_location_thresholds ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0")
+
+        database.execSQL("ALTER TABLE article_images ADD COLUMN is_deleted INTEGER NOT NULL DEFAULT 0")
+        database.execSQL("ALTER TABLE article_images ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0")
+        database.execSQL("UPDATE article_images SET updated_at = created_at")
+    }
+}
+

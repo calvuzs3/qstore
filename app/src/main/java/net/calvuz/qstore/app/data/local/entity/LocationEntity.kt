@@ -29,5 +29,10 @@ data class LocationEntity(
     val createdAt: Long,
 
     @ColumnInfo(name = "updated_at")
-    val updatedAt: Long
+    val updatedAt: Long,
+
+    // Nessun flusso di cancellazione locale usa ancora questo campo (nessuna UI oggi) —
+    // aggiunto per simmetria con lo schema server, pronto per quando servirà.
+    @ColumnInfo(name = "is_deleted", defaultValue = "0")
+    val isDeleted: Boolean = false
 )

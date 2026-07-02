@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Min SDK**: 33 (Android 13)
 - **Target SDK**: 35
 - **Kotlin**: 2.1.0 / JVM 17
-- **Current DB version**: 6 (MIGRATION_3_4: multi-location — `locations`, `article_location_thresholds`, `movements.id` Long→UUID, `from_location_uuid`/`to_location_uuid`, `inventory` PK composta articolo+ubicazione, `MovementType.ADJUSTMENT`/`TRANSFER`; MIGRATION_4_5: `movements.created_by`; MIGRATION_5_6: `article_images.is_uploaded`)
+- **Current DB version**: 7 (MIGRATION_3_4: multi-location — `locations`, `article_location_thresholds`, `movements.id` Long→UUID, `from_location_uuid`/`to_location_uuid`, `inventory` PK composta articolo+ubicazione, `MovementType.ADJUSTMENT`/`TRANSFER`; MIGRATION_4_5: `movements.created_by`; MIGRATION_5_6: `article_images.is_uploaded`; MIGRATION_6_7: `is_deleted` su `article_categories`/`articles`/`locations`/`article_location_thresholds`/`article_images` + vero `updated_at` su `article_images`)
 
 ## Stato attuale — sync multi-device (HANDOFF, 2026-07-02)
 
@@ -28,17 +28,31 @@ non si aggiornava mai tornando dalla sync (fetch one-shot senza refresh automati
 `Result` scartato in `ingestMovement` poteva far sparire silenziosamente un fallimento di
 inventario (ora loggato e riportato in `SyncSummary.failedMovements`).
 
-**Appena aggiunto, non ancora testato su device reale**: `ImageTransferWorker`
-(WorkManager + Hilt), accodato automaticamente a fine `syncNow()` — carica su
-`/images/upload/{id}` i JPEG scattati su questo device e non ancora sul server
-(`article_images.is_uploaded=false`), scarica da `/images/download/{id}` quelli il cui
-metadato è arrivato via pull ma il cui file non esiste ancora in locale. Gira come
-foreground service (notifica di avanzamento, canale `image_transfer`) — richiede il
-permesso runtime POST_NOTIFICATIONS (richiesto in `LoginScreen` quando si entra in
-`AlreadyLoggedIn`, min SDK è già 33 quindi sempre necessario). Vincolo di rete
-configurabile (switch in Impostazioni > Account: solo wifi di default, o anche dati
-mobili) — vedi `SyncSettingsRepository`/`SyncLocalStore`. Compila pulito (build da zero
-con KSP/Hilt) ma non ancora verificato end-to-end con foto reali su un device.
+**Verificato anche `ImageTransferWorker`** (WorkManager + Hilt), accodato automaticamente
+a fine `syncNow()` — carica su `/images/upload/{id}` i JPEG scattati su questo device e
+non ancora sul server (`article_images.is_uploaded=false`), scarica da
+`/images/download/{id}` quelli il cui metadato è arrivato via pull ma il cui file non
+esiste ancora in locale. Gira come foreground service (notifica di avanzamento, canale
+`image_transfer`) — richiede il permesso runtime POST_NOTIFICATIONS (richiesto in
+`LoginScreen` quando si entra in `AlreadyLoggedIn`, min SDK è già 33 quindi sempre
+necessario). Vincolo di rete configurabile (switch in Impostazioni > Account: solo wifi
+di default, o anche dati mobili) — vedi `SyncSettingsRepository`/`SyncLocalStore`. Bug
+trovato e corretto: il `<service>` interno di WorkManager che ospita il foreground di
+ogni worker non dichiara un `foregroundServiceType` di default — va sovrascritto nel
+manifest dell'app (`tools:node="merge"` su `SystemForegroundService`), altrimenti
+`setForeground()` crasha con `IllegalArgumentException` anche a codice corretto. Testato
+su device reale con foto vere: upload confermato funzionante.
+
+**Aggiunta la propagazione delle cancellazioni locali → server** (MIGRATION_6_7):
+`article_categories`/`articles`/`locations`/`article_location_thresholds`/`article_images`
+hanno ora `is_deleted` — cancellare localmente diventa un soft-delete (`is_deleted=1`,
+`updated_at=now`) invece di un `DELETE` fisico, raccolto dalla stessa query di push già
+esistente e propagato al server (che già sapeva gestirlo in arrivo, nessuna modifica
+server necessaria). `movements` resta escluso di proposito — log append-only. Cambiato
+anche il comportamento di `DeleteArticleUseCase`: **non cancella più** inventario/movimenti
+(il CASCADE di Room non scatta su un UPDATE), le immagini dell'articolo vengono invece
+soft-eliminate esplicitamente in codice (incluso il file JPEG fisico, cancellato subito).
+Non ancora testato su device reale (solo build da zero pulita).
 
 **Non ancora fatto** (elencato per priorità presunta, nessun ordine impegnativo):
 1. Canale WebSocket (`ws /sync/ws`) per il nudge near-realtime + `WorkManager` per una
@@ -46,16 +60,13 @@ con KSP/Hilt) ma non ancora verificato end-to-end con foto reali su un device.
    server li supporta già, lato Android sono deliberatamente rinviati (vedi sezione
    "Sync" più sotto) per verificare push/pull manuale in isolamento prima di aggiungere
    l'automazione in background.
-2. Propagazione delle cancellazioni locali → server: le entity locali non hanno un flag
-   `isDeleted`, quindi oggi solo la direzione server → locale funziona (vedi sezione
-   "Sync"). Richiederebbe un'altra migrazione Room.
-3. UI di gestione membership (invita/cambia ruolo/rimuovi) e lettura audit log: gli
+2. UI di gestione membership (invita/cambia ruolo/rimuovi) e lettura audit log: gli
    endpoint server esistono (`quickstore-server/CLAUDE.md` sezione 9), nessuna schermata
    Android li usa ancora.
-4. `org_id` sulle entity sincronizzate: deciso di **non** aggiungerlo (i DTO di rete non lo
+3. `org_id` sulle entity sincronizzate: deciso di **non** aggiungerlo (i DTO di rete non lo
    portano comunque, lo inietta il server dal JWT) a meno che non emerga un vero bisogno
    di isolare dati multi-org sullo stesso device.
-5. Redesign del formato di backup per il multi-magazzino (rinviato quando abbiamo fatto la
+4. Redesign del formato di backup per il multi-magazzino (rinviato quando abbiamo fatto la
    migrazione v3→v4 — vedi sezione "Backup Format" più sotto): il backup/restore ZIP
    ignora ancora `locations`.
 
@@ -202,9 +213,11 @@ First working version of the `sync` module: a **manual** "Sincronizza ora" butto
 - Cursor (`since`) and a stable per-install `deviceId` live in `SyncLocalStore` (its own DataStore, `sync_state`).
 - Every log line in the sync path is tagged `"Sync"` via Timber (planted only in debug builds, `QuickStoreApplication.onCreate`) — `SyncRepositoryImpl`/`SyncApi`/`ImagesApi` all log push/pull payload sizes per entity, every upsert decision (insert/update/skip-stale/delete), and non-success HTTP responses with their body. Use `adb logcat -s Sync:*` when diagnosing a sync issue instead of guessing.
 
-**Known limitations of this first version** (see comments in `SyncRepositoryImpl.kt`):
-- Local entities (`article_categories`, `articles`, `locations`, `article_location_thresholds`, `article_images`) have **no `isDeleted` flag** — local deletions are hard-deletes and never propagate to the server. A remote deletion (`isDeleted=true` in a pull) *is* applied locally (row deleted). Fixing the local→remote direction needs its own migration adding soft-delete everywhere, not done here.
-- `article_images` has no `updated_at` locally; `created_at` is used as a stand-in on both sides of the sync.
+**Deletion propagation** (MIGRATION_6_7): `article_categories`/`articles`/`locations`/`article_location_thresholds`/`article_images` all have `is_deleted`. A local delete is now a soft-delete (`is_deleted=1`, `updated_at=now`) — picked up by the same `getUpdatedSince(cursor)` push query used for regular updates (a deletion is conceptually just another update) and pushed with `isDeleted=true` in the DTO (`toDto()` now reads the real field instead of hardcoding `false`). The server already knew how to store an incoming `isDeleted` (no server change needed). A remote deletion (`isDeleted=true` arriving via pull) is still applied as a **hard** local `DELETE` — no need to keep a local tombstone for something the server has already confirmed gone; this also still triggers Room's `FK CASCADE` for that direction (pre-existing behavior, unchanged). `movements` is deliberately excluded — it's an append-only log, "deleting" a row doesn't fit the model.
+- Read-facing DAO queries (`getAll`/`observeAll`/`search*`/`count*`/`hasImages`/etc.) filter `is_deleted = 0`; sync-internal queries (`getByUuid`, `getUpdatedSince`, `getPendingUpload`) do **not** — they need to see soft-deleted rows (LWW comparison, push collection). Where the same lookup serves both a user-facing repository method and sync, the filter is applied in the repository layer instead (e.g. `ArticleRepositoryImpl.getByUuid`), not the DAO.
+- Deleting an article (`DeleteArticleUseCase`) no longer wipes its inventory/movements — Room's FK `CASCADE` doesn't fire on an `UPDATE` (soft-delete), only a real `DELETE`. This is an intentional behavior change: movements stay as an append-only historical record even for a deleted article; inventory rows go stale but harmless (the article is hidden from every list/search anyway). The article's own images ARE explicitly soft-deleted in code (`ArticleImageDao.markAllDeletedByArticleUuid`), plus their physical JPEG files removed immediately from disk — there's no FK cascade to rely on anymore, so this cascade is now explicit application code, not the database.
+- `locations` and `article_location_thresholds` got the `is_deleted` column for schema symmetry with the server, but have **no delete flow wired up** — neither has a UI or a `repository.delete()` today, so nothing sets it yet.
+- `article_images` also gained a real `updated_at` column (previously `created_at` was reused as a stand-in, which can't represent a later deletion without corrupting the true creation timestamp).
 - No WebSocket client, no periodic background sync — the metadata sync only happens when the user taps the button (the photo transfer below runs automatically after it, that part is not manual).
 
 ### Photo transfer (`ImageTransferWorker`)
@@ -218,7 +231,8 @@ The sync payload above only carries `imagePath` (a string) and `featuresData` (s
 - Network constraint is user-configurable (`SyncSettingsRepository`/`SyncLocalStore`, a `Switch` next to "Sincronizza ora"): defaults to `NetworkType.UNMETERED` (wifi-only, since transfers can be heavy), can be relaxed to `NetworkType.CONNECTED` (any network, including mobile data).
 - On partial failure, `doWork()` returns `Result.retry()` — safe to retry from scratch since both upload (`is_uploaded` flag) and download (file-existence check) are idempotent; already-done items are skipped on the next attempt, only the failed ones are retried.
 - Requires `Configuration.Provider` + `HiltWorkerFactory` wiring in `QuickStoreApplication`, and the default `WorkManagerInitializer` disabled in the manifest (`tools:node="remove"` on the `androidx.startup.InitializationProvider` entry) — the two can't coexist.
-- Not yet end-to-end tested with real photos on a device (compiles clean, including a from-scratch KSP/Hilt graph validation).
+- WorkManager's own `SystemForegroundService` (the service that actually hosts every worker's `setForeground()` call) declares no `foregroundServiceType` in its own manifest by default — on API 34+ this crashes `setForeground(FOREGROUND_SERVICE_TYPE_DATA_SYNC)` with `IllegalArgumentException` even with correct code. Fixed by overriding that `<service>` entry in the app's manifest (`tools:node="merge"`, `android:foregroundServiceType="dataSync"`).
+- Verified end-to-end on a real device with real photos: upload confirmed working.
 
 ## Key Technical Notes
 
