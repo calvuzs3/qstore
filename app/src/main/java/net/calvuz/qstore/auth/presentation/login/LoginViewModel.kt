@@ -33,16 +33,19 @@ sealed class LoginUiState {
         val error: String? = null
     ) : LoginUiState()
 
-    /** Sessione già presente all'apertura dello schermo, o appena ottenuta con un login fresco. */
+    /**
+     * Sessione già presente all'apertura dello schermo, o appena ottenuta con un login
+     * fresco — in entrambi i casi la UI mostra subito i pulsanti "Sincronizza ora"/
+     * "Disconnetti", senza dover navigare via e tornare indietro. [justLoggedIn] fa
+     * comparire una volta sola lo snackbar di conferma, poi va azzerato.
+     */
     data class AlreadyLoggedIn(
         val session: Session,
         val isLoggingOut: Boolean = false,
         val isSyncing: Boolean = false,
-        val syncMessage: String? = null
+        val syncMessage: String? = null,
+        val justLoggedIn: Boolean = false
     ) : LoginUiState()
-
-    /** Transiente: solo per far scattare onLoggedIn() dopo un login appena riuscito. */
-    data object JustLoggedIn : LoginUiState()
 }
 
 @HiltViewModel
@@ -85,7 +88,9 @@ class LoginViewModel @Inject constructor(
             loginUseCase(form.email, form.password)
                 .onSuccess { result ->
                     _uiState.value = when (result) {
-                        is LoginResult.Authenticated -> LoginUiState.JustLoggedIn
+                        is LoginResult.Authenticated -> LoginUiState.AlreadyLoggedIn(
+                            session = result.session, justLoggedIn = true
+                        )
                         is LoginResult.OrganizationSelectionRequired -> LoginUiState.OrgSelection(
                             pendingToken = result.pendingToken,
                             organizations = result.organizations
@@ -104,12 +109,18 @@ class LoginViewModel @Inject constructor(
 
         viewModelScope.launch {
             selectOrganizationUseCase(state.pendingToken, orgId)
-                .onSuccess {
-                    _uiState.value = LoginUiState.JustLoggedIn
+                .onSuccess { session ->
+                    _uiState.value = LoginUiState.AlreadyLoggedIn(session = session, justLoggedIn = true)
                 }
                 .onFailure { throwable ->
                     _uiState.value = state.copy(isLoading = false, error = throwable.message ?: "Errore di selezione organizzazione")
                 }
+        }
+    }
+
+    fun clearJustLoggedIn() {
+        (_uiState.value as? LoginUiState.AlreadyLoggedIn)?.let {
+            _uiState.value = it.copy(justLoggedIn = false)
         }
     }
 
@@ -133,7 +144,8 @@ class LoginViewModel @Inject constructor(
                     _uiState.value = current.copy(
                         isSyncing = false,
                         syncMessage = "Sincronizzato: ${summary.pushedCount} inviati, ${summary.pulledCount} ricevuti" +
-                            if (summary.rejectedCount > 0) ", ${summary.rejectedCount} rifiutati" else ""
+                            (if (summary.rejectedCount > 0) ", ${summary.rejectedCount} rifiutati" else "") +
+                            (if (summary.failedMovements > 0) ", ${summary.failedMovements} movimenti falliti" else "")
                     )
                 }
                 .onFailure { throwable ->

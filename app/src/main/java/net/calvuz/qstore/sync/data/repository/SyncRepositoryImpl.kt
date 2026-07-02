@@ -30,7 +30,10 @@ import net.calvuz.qstore.sync.domain.model.SyncException
 import net.calvuz.qstore.sync.domain.model.SyncSummary
 import net.calvuz.qstore.sync.domain.repository.SyncRepository
 import kotlinx.coroutines.flow.first
+import timber.log.Timber
 import javax.inject.Inject
+
+private val log = Timber.tag("Sync")
 
 /**
  * Sincronizzazione manuale: push delle righe locali modificate dopo l'ultimo cursore, poi
@@ -65,13 +68,32 @@ class SyncRepositoryImpl @Inject constructor(
 
             val since = syncLocalStore.getSince()
             val deviceId = syncLocalStore.getDeviceId()
+            log.i("syncNow start: since=$since deviceId=$deviceId org=${session.orgName}")
 
             val pushRequest = buildPushRequest(since, deviceId, session.userId)
+            log.d(
+                "push payload: categories=%d locations=%d articles=%d thresholds=%d movements=%d images=%d",
+                pushRequest.articleCategories.size, pushRequest.locations.size, pushRequest.articles.size,
+                pushRequest.articleLocationThresholds.size, pushRequest.movements.size, pushRequest.articleImages.size
+            )
             val pushResponse = if (hasAnyRows(pushRequest)) syncApi.push(pushRequest) else null
+            if (pushResponse != null) {
+                log.i("push result: accepted=${pushResponse.acceptedIds.size} rejected=${pushResponse.rejectedIds.size}")
+                pushResponse.rejectedIds.forEach { log.w("push rejected id=${it.id} reason=${it.reason}") }
+            } else {
+                log.d("push skipped: nothing to send")
+            }
 
             val pullResponse = syncApi.pull(since)
-            applyPullResponse(pullResponse)
+            log.d(
+                "pull payload: categories=%d locations=%d articles=%d thresholds=%d movements=%d images=%d serverTimestamp=%d",
+                pullResponse.articleCategories.size, pullResponse.locations.size, pullResponse.articles.size,
+                pullResponse.articleLocationThresholds.size, pullResponse.movements.size,
+                pullResponse.articleImages.size, pullResponse.serverTimestamp
+            )
+            val failedMovements = applyPullResponse(pullResponse)
             syncLocalStore.setSince(pullResponse.serverTimestamp)
+            log.i("syncNow done: failedMovements=$failedMovements")
 
             Result.success(
                 SyncSummary(
@@ -79,10 +101,12 @@ class SyncRepositoryImpl @Inject constructor(
                     rejectedCount = pushResponse?.rejectedIds?.size ?: 0,
                     pulledCount = pullResponse.articleCategories.size + pullResponse.locations.size +
                         pullResponse.articles.size + pullResponse.articleLocationThresholds.size +
-                        pullResponse.movements.size + pullResponse.articleImages.size
+                        pullResponse.movements.size + pullResponse.articleImages.size,
+                    failedMovements = failedMovements
                 )
             )
         } catch (e: Exception) {
+            log.e(e, "syncNow failed")
             Result.failure(e)
         }
     }
@@ -142,50 +166,66 @@ class SyncRepositoryImpl @Inject constructor(
     // ===== PULL — upsert LWW, ordine di dipendenza: categories -> locations -> articles ->
     //              thresholds -> movements -> images (stesso ordine del server) =====
 
-    private suspend fun applyPullResponse(response: SyncPullResponse) {
+    /** @return numero di movimenti che non sono stati applicati con successo. */
+    private suspend fun applyPullResponse(response: SyncPullResponse): Int {
         response.articleCategories.forEach { upsertCategory(it) }
         response.locations.forEach { upsertLocation(it) }
         response.articles.forEach { upsertArticle(it) }
         response.articleLocationThresholds.forEach { upsertThreshold(it) }
-        response.movements.forEach { ingestMovement(it) }
+        val failedMovements = response.movements.count { !ingestMovement(it) }
         response.articleImages.forEach { upsertImage(it) }
+        return failedMovements
     }
 
     private suspend fun upsertCategory(dto: ArticleCategoryDto) {
         val existing = articleCategoryDao.getByUuid(dto.id)
         if (dto.isDeleted) {
             existing?.let { articleCategoryDao.delete(it) }
+            log.d("category ${dto.id} deleted (remoto)")
             return
         }
-        if (existing != null && dto.updatedAt <= existing.updatedAt) return // LWW: scarta se non più recente
+        if (existing != null && dto.updatedAt <= existing.updatedAt) {
+            log.v("category ${dto.id} skip (stale, local updatedAt=${existing.updatedAt} >= remote ${dto.updatedAt})")
+            return
+        }
         val entity = ArticleCategoryEntity(
             uuid = dto.id, name = dto.name, description = dto.description, notes = dto.notes,
             createdAt = existing?.createdAt ?: dto.createdAt, updatedAt = dto.updatedAt
         )
         if (existing != null) articleCategoryDao.update(entity) else articleCategoryDao.insert(entity)
+        log.d("category ${dto.id} '${dto.name}' ${if (existing != null) "updated" else "inserted"}")
     }
 
     private suspend fun upsertLocation(dto: LocationDto) {
         val existing = locationDao.getByUuid(dto.id)
         if (dto.isDeleted) {
             existing?.let { locationDao.delete(it) }
+            log.d("location ${dto.id} deleted (remoto)")
             return
         }
-        if (existing != null && dto.updatedAt <= existing.updatedAt) return
+        if (existing != null && dto.updatedAt <= existing.updatedAt) {
+            log.v("location ${dto.id} skip (stale)")
+            return
+        }
         val entity = LocationEntity(
             uuid = dto.id, name = dto.name, notes = dto.notes,
             createdAt = existing?.createdAt ?: dto.createdAt, updatedAt = dto.updatedAt
         )
         if (existing != null) locationDao.update(entity) else locationDao.insert(entity)
+        log.d("location ${dto.id} '${dto.name}' ${if (existing != null) "updated" else "inserted"}")
     }
 
     private suspend fun upsertArticle(dto: ArticleDto) {
         val existing = articleDao.getByUuid(dto.id)
         if (dto.isDeleted) {
             existing?.let { articleDao.delete(it) }
+            log.d("article ${dto.id} deleted (remoto)")
             return
         }
-        if (existing != null && dto.updatedAt <= existing.updatedAt) return
+        if (existing != null && dto.updatedAt <= existing.updatedAt) {
+            log.v("article ${dto.id} skip (stale)")
+            return
+        }
         val entity = ArticleEntity(
             uuid = dto.id, name = dto.name, description = dto.description, categoryId = dto.categoryId,
             unitOfMeasure = dto.unitOfMeasure, reorderLevel = dto.reorderLevel, notes = dto.notes,
@@ -193,50 +233,70 @@ class SyncRepositoryImpl @Inject constructor(
             createdAt = existing?.createdAt ?: dto.createdAt, updatedAt = dto.updatedAt
         )
         if (existing != null) articleDao.update(entity) else articleDao.insert(entity)
+        log.d("article ${dto.id} '${dto.name}' ${if (existing != null) "updated" else "inserted"}")
     }
 
     private suspend fun upsertThreshold(dto: ArticleLocationThresholdDto) {
         val existing = articleLocationThresholdDao.getByUuid(dto.id)
         if (dto.isDeleted) {
             existing?.let { articleLocationThresholdDao.delete(it) }
+            log.d("threshold ${dto.id} deleted (remoto)")
             return
         }
-        if (existing != null && dto.updatedAt <= existing.updatedAt) return
+        if (existing != null && dto.updatedAt <= existing.updatedAt) {
+            log.v("threshold ${dto.id} skip (stale)")
+            return
+        }
         val entity = ArticleLocationThresholdEntity(
             uuid = dto.id, articleUuid = dto.articleId, locationUuid = dto.locationId,
             reorderLevel = dto.reorderLevel, createdAt = existing?.createdAt ?: dto.createdAt, updatedAt = dto.updatedAt
         )
         if (existing != null) articleLocationThresholdDao.update(entity) else articleLocationThresholdDao.insert(entity)
+        log.d("threshold ${dto.id} ${if (existing != null) "updated" else "inserted"}")
     }
 
-    private suspend fun ingestMovement(dto: MovementDto) {
-        movementRepository.ingestPulledMovement(
-            Movement(
-                id = dto.id,
-                articleUuid = dto.articleId,
-                type = MovementType.valueOf(dto.type),
-                fromLocationUuid = dto.fromLocationId,
-                toLocationUuid = dto.toLocationId,
-                quantity = dto.quantity,
-                notes = dto.notes,
-                createdAt = dto.createdAt,
-                createdBy = dto.createdBy
-            )
+    /**
+     * @return true se applicato con successo. Il Result di ingestPulledMovement NON va mai
+     * scartato: un fallimento silenzioso qui (es. vincolo FK su un articolo/ubicazione non
+     * ancora presente) lascia l'inventario locale disallineato dallo storico movimenti senza
+     * che il sync riporti alcun errore — bug reale osservato: giacenze sempre a 0 dopo una
+     * pull "da zero" perché i movimenti fallivano silenziosamente.
+     */
+    private suspend fun ingestMovement(dto: MovementDto): Boolean {
+        val movement = Movement(
+            id = dto.id,
+            articleUuid = dto.articleId,
+            type = MovementType.valueOf(dto.type),
+            fromLocationUuid = dto.fromLocationId,
+            toLocationUuid = dto.toLocationId,
+            quantity = dto.quantity,
+            notes = dto.notes,
+            createdAt = dto.createdAt,
+            createdBy = dto.createdBy
         )
+        return movementRepository.ingestPulledMovement(movement)
+            .onSuccess { log.d("movement ${dto.id} article=${dto.articleId} type=${dto.type} ingested") }
+            .onFailure { log.e(it, "movement ${dto.id} article=${dto.articleId} type=${dto.type} FAILED to ingest") }
+            .isSuccess
     }
 
     private suspend fun upsertImage(dto: ArticleImageDto) {
         val existing = articleImageDao.getByUuid(dto.id)
         if (dto.isDeleted) {
             existing?.let { articleImageDao.delete(it) }
+            log.d("image ${dto.id} deleted (remoto)")
             return
         }
-        if (existing != null && dto.updatedAt <= existing.createdAt) return // niente updatedAt locale, confronto su createdAt
+        if (existing != null && dto.updatedAt <= existing.createdAt) { // niente updatedAt locale, confronto su createdAt
+            log.v("image ${dto.id} skip (stale)")
+            return
+        }
         val entity = ArticleImageEntity(
             uuid = dto.id, articleUuid = dto.articleId, imagePath = dto.imagePath,
             featuresData = Base64.decode(dto.featuresData, Base64.NO_WRAP),
             createdAt = existing?.createdAt ?: dto.createdAt
         )
         if (existing != null) articleImageDao.insertOrReplace(entity) else articleImageDao.insert(entity)
+        log.d("image ${dto.id} article=${dto.articleId} ${if (existing != null) "updated" else "inserted"} (solo descrittori, non il JPEG)")
     }
 }

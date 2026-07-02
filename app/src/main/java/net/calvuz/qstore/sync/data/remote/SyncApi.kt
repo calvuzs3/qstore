@@ -8,6 +8,7 @@ import io.ktor.client.request.parameter
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
@@ -19,8 +20,11 @@ import net.calvuz.qstore.sync.data.remote.dto.SyncPullResponse
 import net.calvuz.qstore.sync.data.remote.dto.SyncPushRequest
 import net.calvuz.qstore.sync.data.remote.dto.SyncPushResponse
 import net.calvuz.qstore.sync.domain.model.SyncException
+import timber.log.Timber
 import java.io.IOException
 import javax.inject.Inject
+
+private val log = Timber.tag("Sync")
 
 class SyncApi @Inject constructor(
     private val httpClient: HttpClient,
@@ -41,6 +45,7 @@ class SyncApi @Inject constructor(
     }
 
     suspend fun push(payload: SyncPushRequest): SyncPushResponse {
+        log.d("POST /sync/push deviceId=${payload.deviceId}")
         val response = request {
             httpClient.post("${baseUrl()}/sync/push") {
                 bearerAuth(token())
@@ -52,6 +57,7 @@ class SyncApi @Inject constructor(
     }
 
     suspend fun pull(since: Long): SyncPullResponse {
+        log.d("GET /sync/pull since=$since")
         val response = request {
             httpClient.get("${baseUrl()}/sync/pull") {
                 bearerAuth(token())
@@ -66,14 +72,19 @@ class SyncApi @Inject constructor(
         val response = try {
             block()
         } catch (e: IOException) {
+            log.e(e, "network error")
             throw SyncException("Impossibile contattare il server — verifica la connessione o l'indirizzo in Impostazioni")
         } catch (e: SyncException) {
             throw e
         } catch (e: Exception) {
+            log.e(e, "unexpected error")
             throw SyncException(e.message ?: "Errore imprevisto")
         }
 
+        log.d("response status=${response.status}")
         if (!response.status.isSuccess()) {
+            val body = runCatching { response.bodyAsText() }.getOrDefault("<unreadable>")
+            log.w("non-success response status=${response.status} body=$body")
             throw SyncException(
                 when (response.status) {
                     HttpStatusCode.Unauthorized -> "Sessione scaduta, accedi di nuovo"
