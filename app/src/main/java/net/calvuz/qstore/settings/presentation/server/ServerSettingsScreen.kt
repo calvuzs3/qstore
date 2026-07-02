@@ -81,13 +81,13 @@ fun ServerSettingsScreen(
             item {
                 SettingsSection(
                     title = "Indirizzo server",
-                    description = "Usato per login e sincronizzazione (es. http://192.168.0.91:8081)"
+                    description = "Usato per login e sincronizzazione (es. https://quickstore.calvuz.net)"
                 ) {
                     OutlinedTextField(
                         value = baseUrl,
                         onValueChange = { baseUrl = it },
                         label = { Text("URL server") },
-                        placeholder = { Text("http://host:porta") },
+                        placeholder = { Text("https://quickstore.calvuz.net") },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
