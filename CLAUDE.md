@@ -125,7 +125,7 @@ Inventory exports to CSV (`;` separator, UTF-8) or Excel (`.xlsx` via Apache POI
 Three settings stores backed by `DataStore<Preferences>`:
 - `DisplaySettings` — controls `ArticleCardStyle` (compact/full) in article list
 - `RecognitionSettings` — tunable OpenCV matching thresholds with presets
-- `ServerSettings` — base URL of `quickstore-server` for the `auth` module (no fixed public domain yet, user enters `host:port` manually)
+- `ServerSettings` — base URL of `quickstore-server` for the `auth` module, user-entered (now `https://quickstore.calvuz.net`, publicly reachable with a real TLS cert via reverse proxy — no longer just the VM's private IP)
 
 All are exposed as `Flow<Settings>` from their repositories and observed in ViewModels.
 
