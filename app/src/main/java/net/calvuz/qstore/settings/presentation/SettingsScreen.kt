@@ -6,10 +6,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -43,7 +45,9 @@ fun SettingsScreen(
     onNavigateToCategories: () -> Unit,
     onNavigateToAbout: (() -> Unit),
     onNavigateToBackupRestore: (() -> Unit)? = null,
-    onNavigateToData: (() -> Unit)? = null
+    onNavigateToData: (() -> Unit)? = null,
+    onNavigateToServer: (() -> Unit)? = null,
+    onNavigateToLogin: (() -> Unit)? = null
 ) {
     Scaffold(
         topBar = {
@@ -113,6 +117,28 @@ fun SettingsScreen(
                         title = "Backup & Ripristino",
                         subtitle = "Esporta e importa i tuoi dati",
                         onClick = onNavigateToBackupRestore ?: {}
+                    )
+                }
+            }
+
+            // === Sezione Account & Sincronizzazione (opzionale) ===
+            item {
+                SettingsSection(
+                    title = "Account & Sincronizzazione",
+                    description = "Facoltativo: l'app funziona offline anche senza"
+                ) {
+                    SettingsNavigationItem(
+                        icon = Icons.Default.Dns,
+                        title = "Server di sincronizzazione",
+                        subtitle = "Indirizzo del server",
+                        onClick = onNavigateToServer ?: {}
+                    )
+
+                    SettingsNavigationItem(
+                        icon = Icons.Default.AccountCircle,
+                        title = "Account",
+                        subtitle = "Accedi per sincronizzare tra più dispositivi",
+                        onClick = onNavigateToLogin ?: {}
                     )
                 }
             }

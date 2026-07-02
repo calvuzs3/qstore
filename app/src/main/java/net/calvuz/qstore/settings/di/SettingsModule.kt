@@ -6,8 +6,10 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.calvuz.qstore.settings.data.RecognitionSettingsRepositoryImpl
 import net.calvuz.qstore.settings.data.DisplaySettingsRepositoryImpl
+import net.calvuz.qstore.settings.data.ServerSettingsRepositoryImpl
 import net.calvuz.qstore.settings.domain.repository.DisplaySettingsRepository
 import net.calvuz.qstore.settings.domain.repository.RecognitionSettingsRepository
+import net.calvuz.qstore.settings.domain.repository.ServerSettingsRepository
 import javax.inject.Singleton
 
 /**
@@ -32,4 +34,10 @@ abstract class SettingsModule {
     abstract fun bindRecognitionSettingsRepository(
         impl: RecognitionSettingsRepositoryImpl
     ): RecognitionSettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindServerSettingsRepository(
+        impl: ServerSettingsRepositoryImpl
+    ): ServerSettingsRepository
 }

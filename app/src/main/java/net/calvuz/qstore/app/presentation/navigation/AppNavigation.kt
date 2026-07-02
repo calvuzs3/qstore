@@ -15,6 +15,7 @@ import net.calvuz.qstore.app.presentation.ui.camera.SearchResultsScreen
 import net.calvuz.qstore.app.presentation.ui.home.HomeScreen
 import net.calvuz.qstore.app.presentation.ui.movements.add.AddMovementScreen
 import net.calvuz.qstore.app.presentation.ui.movements.list.MovementListScreen
+import net.calvuz.qstore.auth.presentation.login.LoginScreen
 import net.calvuz.qstore.backup.presentation.BackupRestoreScreen
 import net.calvuz.qstore.categories.presentation.ui.categories.edit.CategoryEditScreen
 import net.calvuz.qstore.categories.presentation.ui.categories.list.CategoryListScreen
@@ -23,6 +24,7 @@ import net.calvuz.qstore.export.presentation.ui.export.ExportScreen
 import net.calvuz.qstore.settings.presentation.SettingsScreen
 import net.calvuz.qstore.settings.presentation.about.AboutScreen
 import net.calvuz.qstore.settings.presentation.display.DisplaySettingsScreen
+import net.calvuz.qstore.settings.presentation.server.ServerSettingsScreen
 
 /**
  * Sealed class per definire tutte le rotte dell'app
@@ -73,6 +75,10 @@ sealed class Screen(val route: String) {
     data object AboutSettings: Screen("settings/about")
     data object DisplaySettings : Screen("settings/display")
     data object RecognitionSettings : Screen("settings/recognition")
+    data object ServerSettings : Screen("settings/server")
+
+    // Account / sincronizzazione (opzionale, l'app resta utilizzabile offline senza)
+    data object Login : Screen("login")
 }
 
 /**
@@ -271,6 +277,27 @@ fun AppNavigation(
                 onNavigateToCategories = {
                     navController.navigate(Screen.CategoryList.route)
                 },
+                onNavigateToServer = {
+                    navController.navigate(Screen.ServerSettings.route)
+                },
+                onNavigateToLogin = {
+                    navController.navigate(Screen.Login.route)
+                },
+            )
+        }
+
+        // ========== SERVER SETTINGS SCREEN ==========
+        composable(Screen.ServerSettings.route) {
+            ServerSettingsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        // ========== LOGIN SCREEN ==========
+        composable(Screen.Login.route) {
+            LoginScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onLoggedIn = { navController.popBackStack() }
             )
         }
 

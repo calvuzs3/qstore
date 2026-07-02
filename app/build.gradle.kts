@@ -26,7 +26,7 @@ android {
         targetSdk = 35
 
         versionCode = 3
-        versionName = "1.2.5"
+        versionName = "1.2.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -185,6 +185,16 @@ dependencies {
 
     // Kotlin Serialization (richiesto da Room per schema export)
     implementation(libs.kotlinx.serialization.json)
+
+    // Ktor Client (sync con quickstore-server)
+    implementation(libs.ktor.client.core)
+    implementation(libs.ktor.client.okhttp)
+    implementation(libs.ktor.client.content.negotiation)
+    implementation(libs.ktor.serialization.kotlinx.json)
+    implementation(libs.ktor.client.logging)
+
+    // Storage cifrato per il token JWT
+    implementation(libs.androidx.security.crypto)
 
     // Testing
     testImplementation(libs.junit)

@@ -40,7 +40,7 @@ Room schema is exported to `app/schemas/` (configured via KSP arg `room.schemaLo
 Strict Clean Architecture in three layers. The package root splits into two namespaces:
 
 - `net.calvuz.qstore.app.*` — core app (articles, inventory, movements, camera/recognition)
-- `net.calvuz.qstore.<feature>.*` — self-contained feature modules: `backup`, `categories`, `export`, `settings`
+- `net.calvuz.qstore.<feature>.*` — self-contained feature modules: `backup`, `categories`, `export`, `settings`, `auth`
 
 Each feature module and the core app follow the same internal layout:
 
@@ -122,11 +122,22 @@ Inventory exports to CSV (`;` separator, UTF-8) or Excel (`.xlsx` via Apache POI
 
 ## Settings
 
-Two settings stores backed by `DataStore<Preferences>`:
+Three settings stores backed by `DataStore<Preferences>`:
 - `DisplaySettings` — controls `ArticleCardStyle` (compact/full) in article list
 - `RecognitionSettings` — tunable OpenCV matching thresholds with presets
+- `ServerSettings` — base URL of `quickstore-server` for the `auth` module (no fixed public domain yet, user enters `host:port` manually)
 
-Both are exposed as `Flow<Settings>` from their repositories and observed in ViewModels.
+All are exposed as `Flow<Settings>` from their repositories and observed in ViewModels.
+
+## Auth (optional, for multi-device sync)
+
+QuickStore remains fully usable offline with no account — `auth` is opt-in, reachable from Settings > Account, never a gate before Home.
+
+- `AuthRepository`: `login(email, password)` → either a full `Session` or `LoginResult.OrganizationSelectionRequired` (server two-step flow for multi-org users, see `quickstore-server`); `selectOrganization(pendingToken, orgId)` completes the second step.
+- JWT is stored raw (not decomposed) in `TokenStore`, an `EncryptedSharedPreferences` (Keystore-backed) — never `DataStore`, since this is a credential, not a preference. `orgName` isn't a JWT claim, so it's persisted alongside the token to survive app restarts without a fresh login.
+- `JwtDecoder` reads claims (`sub`, `orgId`, `roleLevel`, `roleCode`, `exp`) client-side without verifying the signature — the server already verified it when issuing the token; the client only needs the claims to rebuild `Session` on restart and to check local expiry.
+- Network client: Ktor (OkHttp engine) pinned to **3.1.3**, not the newer 3.5.0 used by `quickstore-server` — QuickStore is on Kotlin 2.1.0 and later Ktor releases ship binary metadata requiring Kotlin 2.3.x.
+- `MIGRATION_3_4`→`v5` (not yet done) will add `org_id`/`created_by` to synced entities once this module proves out the session/token plumbing — see `quickstore-server/CLAUDE.md` for the full sync design this feeds into.
 
 ## Key Technical Notes
 
