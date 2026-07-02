@@ -2,20 +2,34 @@ package net.calvuz.qstore
 
 import android.app.Application
 import android.util.Log
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import net.calvuz.qstore.app.data.opencv.OpenCVManager
+import net.calvuz.qstore.sync.data.worker.createImageTransferNotificationChannel
 import timber.log.Timber
 import javax.inject.Inject
 
 @HiltAndroidApp
-class QuickStoreApplication : Application() {
+class QuickStoreApplication : Application(), Configuration.Provider {
 
     @Inject
     lateinit var openCVManager: OpenCVManager
+
+    // Necessario perché i Worker (ImageTransferWorker) sono @HiltWorker con dipendenze
+    // iniettate — senza questa factory WorkManager userebbe il costruttore no-arg di
+    // default e fallirebbe a istanziarli.
+    @Inject
+    lateinit var workerFactory: HiltWorkerFactory
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
 
     // Scope per operazioni asincrone nell'Application
     private val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
@@ -28,6 +42,8 @@ class QuickStoreApplication : Application() {
         }
 
         Log.d(TAG, "🚀 QuickStore Application Starting...")
+
+        createImageTransferNotificationChannel(this)
 
         // Inizializza OpenCV in modo asincrono
         initializeOpenCV()

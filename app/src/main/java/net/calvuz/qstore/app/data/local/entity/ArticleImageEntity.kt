@@ -38,7 +38,13 @@ data class ArticleImageEntity(
     val featuresData: ByteArray, // OpenCV Mat descriptors serializzati
 
     @ColumnInfo(name = "created_at")
-    val createdAt: Long // Unix timestamp UTC
+    val createdAt: Long, // Unix timestamp UTC
+
+    // false per le immagini scattate su questo device (il JPEG deve ancora essere caricato
+    // su /images/upload/{id}); true per quelle arrivate via /sync/pull — sono per
+    // definizione già sul server, non vanno ricaricate. Vedi sync/data/worker/ImageTransferWorker.
+    @ColumnInfo(name = "is_uploaded", defaultValue = "0")
+    val isUploaded: Boolean = false
 ) {
     // Override equals e hashCode per ByteArray
     override fun equals(other: Any?): Boolean {
@@ -52,6 +58,7 @@ data class ArticleImageEntity(
         if (imagePath != other.imagePath) return false
         if (!featuresData.contentEquals(other.featuresData)) return false
         if (createdAt != other.createdAt) return false
+        if (isUploaded != other.isUploaded) return false
 
         return true
     }
@@ -62,6 +69,7 @@ data class ArticleImageEntity(
         result = 31 * result + imagePath.hashCode()
         result = 31 * result + featuresData.contentHashCode()
         result = 31 * result + createdAt.hashCode()
+        result = 31 * result + isUploaded.hashCode()
         return result
     }
 }

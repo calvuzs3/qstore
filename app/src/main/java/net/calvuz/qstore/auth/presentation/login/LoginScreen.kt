@@ -1,8 +1,12 @@
 package net.calvuz.qstore.auth.presentation.login
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -25,12 +29,14 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -51,6 +57,19 @@ fun LoginScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Min SDK di questo progetto è già 33 (Android 13): il permesso runtime per le
+    // notifiche serve sempre, nessun fallback per versioni precedenti. Senza questo, le
+    // notifiche di avanzamento/esito del trasferimento foto in background (ImageTransferWorker)
+    // non compaiono affatto, senza alcun errore visibile.
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+    LaunchedEffect(uiState is LoginUiState.AlreadyLoggedIn) {
+        if (uiState is LoginUiState.AlreadyLoggedIn) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
 
     LaunchedEffect(uiState) {
         when (val state = uiState) {
@@ -105,7 +124,8 @@ fun LoginScreen(
                 state = state,
                 paddingValues = paddingValues,
                 onLogout = viewModel::logout,
-                onSyncNow = viewModel::syncNow
+                onSyncNow = viewModel::syncNow,
+                onAllowMeteredNetworkChange = viewModel::setAllowMeteredNetwork
             )
         }
     }
@@ -170,7 +190,8 @@ private fun AlreadyLoggedInContent(
     state: LoginUiState.AlreadyLoggedIn,
     paddingValues: PaddingValues,
     onLogout: () -> Unit,
-    onSyncNow: () -> Unit
+    onSyncNow: () -> Unit,
+    onAllowMeteredNetworkChange: (Boolean) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -184,6 +205,26 @@ private fun AlreadyLoggedInContent(
                 Text(text = "Connesso a", style = MaterialTheme.typography.labelMedium)
                 Text(text = state.session.orgName, style = MaterialTheme.typography.titleMedium)
                 Text(text = state.session.roleCode, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = "Carica/scarica foto anche su dati mobili", style = MaterialTheme.typography.bodyMedium)
+                    Text(
+                        text = "Se disattivo, il trasferimento foto parte solo su wifi",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = state.allowMeteredNetwork, onCheckedChange = onAllowMeteredNetworkChange)
             }
         }
 

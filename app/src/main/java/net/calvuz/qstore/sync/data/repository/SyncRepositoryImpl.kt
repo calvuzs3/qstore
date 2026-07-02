@@ -1,6 +1,13 @@
 package net.calvuz.qstore.sync.data.repository
 
+import android.content.Context
 import android.util.Base64
+import androidx.work.Constraints
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import dagger.hilt.android.qualifiers.ApplicationContext
 import net.calvuz.qstore.app.data.local.database.ArticleDao
 import net.calvuz.qstore.app.data.local.database.ArticleImageDao
 import net.calvuz.qstore.app.data.local.database.ArticleLocationThresholdDao
@@ -29,6 +36,7 @@ import net.calvuz.qstore.sync.data.remote.dto.SyncPushRequest
 import net.calvuz.qstore.sync.domain.model.SyncException
 import net.calvuz.qstore.sync.domain.model.SyncSummary
 import net.calvuz.qstore.sync.domain.repository.SyncRepository
+import net.calvuz.qstore.sync.data.worker.ImageTransferWorker
 import kotlinx.coroutines.flow.first
 import timber.log.Timber
 import javax.inject.Inject
@@ -49,6 +57,7 @@ private val log = Timber.tag("Sync")
  * - article_images non ha updated_at lato client: si usa created_at come proxy.
  */
 class SyncRepositoryImpl @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val syncApi: SyncApi,
     private val syncLocalStore: SyncLocalStore,
     private val authRepository: AuthRepository,
@@ -95,6 +104,8 @@ class SyncRepositoryImpl @Inject constructor(
             syncLocalStore.setSince(pullResponse.serverTimestamp)
             log.i("syncNow done: failedMovements=$failedMovements")
 
+            scheduleImageTransfer()
+
             Result.success(
                 SyncSummary(
                     pushedCount = pushResponse?.acceptedIds?.size ?: 0,
@@ -109,6 +120,29 @@ class SyncRepositoryImpl @Inject constructor(
             log.e(e, "syncNow failed")
             Result.failure(e)
         }
+    }
+
+    /**
+     * Il trasferimento foto (JPEG reali) è separato dal sync veloce di metadati appena
+     * concluso — può essere pesante, gira in background con notifica di avanzamento (vedi
+     * ImageTransferWorker). Sempre accodato dopo una sync riuscita: il worker stesso
+     * ritorna subito se non c'è nulla da caricare/scaricare, controllarlo qui duplicherebbe
+     * la stessa query.
+     */
+    private suspend fun scheduleImageTransfer() {
+        val allowMetered = syncLocalStore.observeAllowMeteredNetworkForImages().first()
+        val constraints = Constraints.Builder()
+            .setRequiredNetworkType(if (allowMetered) NetworkType.CONNECTED else NetworkType.UNMETERED)
+            .build()
+        val request = OneTimeWorkRequestBuilder<ImageTransferWorker>()
+            .setConstraints(constraints)
+            .build()
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            ImageTransferWorker.WORK_NAME,
+            ExistingWorkPolicy.KEEP,
+            request
+        )
+        log.d("ImageTransferWorker enqueued (allowMetered=$allowMetered)")
     }
 
     private fun hasAnyRows(request: SyncPushRequest): Boolean =
@@ -294,9 +328,10 @@ class SyncRepositoryImpl @Inject constructor(
         val entity = ArticleImageEntity(
             uuid = dto.id, articleUuid = dto.articleId, imagePath = dto.imagePath,
             featuresData = Base64.decode(dto.featuresData, Base64.NO_WRAP),
-            createdAt = existing?.createdAt ?: dto.createdAt
+            createdAt = existing?.createdAt ?: dto.createdAt,
+            isUploaded = true // arrivata via pull: per definizione già sul server
         )
         if (existing != null) articleImageDao.insertOrReplace(entity) else articleImageDao.insert(entity)
-        log.d("image ${dto.id} article=${dto.articleId} ${if (existing != null) "updated" else "inserted"} (solo descrittori, non il JPEG)")
+        log.d("image ${dto.id} article=${dto.articleId} ${if (existing != null) "updated" else "inserted"} (solo descrittori, JPEG da scaricare a parte)")
     }
 }

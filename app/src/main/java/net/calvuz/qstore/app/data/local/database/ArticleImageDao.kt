@@ -71,4 +71,11 @@ interface ArticleImageDao {
      */
     @Query("SELECT * FROM article_images WHERE created_at > :since")
     suspend fun getUpdatedSince(since: Long): List<ArticleImageEntity>
+
+    /** Immagini il cui JPEG non è ancora stato caricato su /images/upload/{id}. */
+    @Query("SELECT * FROM article_images WHERE is_uploaded = 0")
+    suspend fun getPendingUpload(): List<ArticleImageEntity>
+
+    @Query("UPDATE article_images SET is_uploaded = 1 WHERE uuid = :uuid")
+    suspend fun markUploaded(uuid: String)
 }

@@ -26,7 +26,7 @@ android {
         targetSdk = 35
 
         versionCode = 3
-        versionName = "1.2.12"
+        versionName = "1.2.13"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -198,6 +198,11 @@ dependencies {
 
     // Logging
     implementation(libs.timber)
+
+    // WorkManager (trasferimento foto in background) + integrazione Hilt
+    implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.hilt.work)
+    ksp(libs.androidx.hilt.compiler)
 
     // Testing
     testImplementation(libs.junit)
