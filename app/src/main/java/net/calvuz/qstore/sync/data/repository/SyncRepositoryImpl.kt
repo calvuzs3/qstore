@@ -81,11 +81,17 @@ class SyncRepositoryImpl @Inject constructor(
             val session = authRepository.observeSession().first()
                 ?: throw SyncException("Devi accedere (Impostazioni > Account) prima di sincronizzare")
 
-            val since = syncLocalStore.getSince()
+            val sincePush = syncLocalStore.getSincePush()
+            val sincePull = syncLocalStore.getSincePull()
             val deviceId = syncLocalStore.getDeviceId()
-            log.i("syncNow start: since=$since deviceId=$deviceId org=${session.orgName}")
+            log.i("syncNow start: sincePush=$sincePush sincePull=$sincePull deviceId=$deviceId org=${session.orgName}")
 
-            val pushRequest = buildPushRequest(since, deviceId, session.userId)
+            // Catturato PRIMA di interrogare il DB (stesso motivo del server nella pull):
+            // evita di perdere una riga modificata a metà costruzione del payload, che
+            // altrimenti sfuggirebbe sia a questo push che al prossimo. Orologio del
+            // device, mai quello del server — vedi il commento su SyncLocalStore.
+            val pushTimestamp = System.currentTimeMillis()
+            val pushRequest = buildPushRequest(sincePush, deviceId, session.userId)
             log.d(
                 "push payload: categories=%d locations=%d articles=%d thresholds=%d movements=%d images=%d",
                 pushRequest.articleCategories.size, pushRequest.locations.size, pushRequest.articles.size,
@@ -98,8 +104,11 @@ class SyncRepositoryImpl @Inject constructor(
             } else {
                 log.d("push skipped: nothing to send")
             }
+            // Avanza solo se siamo arrivati vivi fin qui (altrimenti l'eccezione sarebbe già
+            // stata rilanciata sopra, uscendo dal try prima di questa riga).
+            syncLocalStore.setSincePush(pushTimestamp)
 
-            val pullResponse = syncApi.pull(since)
+            val pullResponse = syncApi.pull(sincePull)
             log.d(
                 "pull payload: categories=%d locations=%d articles=%d thresholds=%d movements=%d images=%d serverTimestamp=%d",
                 pullResponse.articleCategories.size, pullResponse.locations.size, pullResponse.articles.size,
@@ -107,7 +116,7 @@ class SyncRepositoryImpl @Inject constructor(
                 pullResponse.articleImages.size, pullResponse.serverTimestamp
             )
             val failedMovements = applyPullResponse(pullResponse)
-            syncLocalStore.setSince(pullResponse.serverTimestamp)
+            syncLocalStore.setSincePull(pullResponse.serverTimestamp)
             log.i("syncNow done: failedMovements=$failedMovements")
 
             scheduleImageTransfer()

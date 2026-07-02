@@ -20,9 +20,16 @@ import javax.inject.Singleton
 private val Context.syncDataStore: DataStore<Preferences> by preferencesDataStore(name = "sync_state")
 
 /**
- * Cursore `since` per la pull incrementale + un deviceId stabile generato una volta sola
- * per installazione (usato in SyncPushRequest.deviceId, e in futuro per il canale
- * WebSocket, per poter escludere il device mittente dal nudge). Implementa anche
+ * Due cursori distinti, deliberatamente NON un singolo `since` condiviso — bug reale
+ * osservato: usare il timestamp restituito dal server (`pullResponse.serverTimestamp`,
+ * orologio del *server*) come cursore per interrogare `getUpdatedSince()` (che confronta
+ * con `updated_at` scritto con l'orologio del *device*) smette di funzionare non appena i
+ * due orologi divergono anche di poco — un device con l'orologio leggermente indietro
+ * smette di riuscire a pushare qualunque modifica futura, cancellazioni comprese, perché
+ * il cursore (basato sul server, "avanti") supera qualunque `updated_at` che quel device
+ * potrà mai produrre. Frequente sugli emulatori, che spesso divergono dall'orologio
+ * dell'host. Vedi anche `deviceId` stabile per installazione (usato in
+ * SyncPushRequest.deviceId, e in futuro per il canale WebSocket). Implementa anche
  * SyncSettingsRepository per esporre la preferenza wifi-only alla presentation layer
  * senza farle toccare direttamente questa classe di data layer.
  */
@@ -33,15 +40,34 @@ class SyncLocalStore @Inject constructor(
     private val dataStore = context.syncDataStore
 
     private object Keys {
-        val SINCE = longPreferencesKey("since")
+        // Nome storico invariato ("since"): prima del fix era l'unico cursore, condiviso
+        // tra push e pull — ora rappresenta solo il cursore di pull (orologio server).
+        val SINCE_PULL = longPreferencesKey("since")
+        val SINCE_PUSH = longPreferencesKey("since_push")
         val DEVICE_ID = stringPreferencesKey("device_id")
         val ALLOW_METERED_IMAGES = booleanPreferencesKey("allow_metered_images")
     }
 
-    suspend fun getSince(): Long = dataStore.data.map { it[Keys.SINCE] ?: 0L }.first()
+    /** Orologio del server — confrontato lato server con `updated_at` (di qualunque device). */
+    suspend fun getSincePull(): Long = dataStore.data.map { it[Keys.SINCE_PULL] ?: 0L }.first()
 
-    suspend fun setSince(since: Long) {
-        dataStore.edit { it[Keys.SINCE] = since }
+    suspend fun setSincePull(since: Long) {
+        dataStore.edit { it[Keys.SINCE_PULL] = since }
+    }
+
+    /**
+     * Orologio di QUESTO device — confrontato localmente con `updated_at` scritto sempre
+     * dallo stesso orologio, quindi sempre coerente indipendentemente da eventuali
+     * discrepanze col clock del server. Se non ancora inizializzato (install esistenti da
+     * prima di questo fix), riusa il vecchio cursore condiviso come punto di partenza
+     * ragionevole invece di ripartire da zero e rimandare tutto lo storico.
+     */
+    suspend fun getSincePush(): Long = dataStore.data.map { prefs ->
+        prefs[Keys.SINCE_PUSH] ?: prefs[Keys.SINCE_PULL] ?: 0L
+    }.first()
+
+    suspend fun setSincePush(since: Long) {
+        dataStore.edit { it[Keys.SINCE_PUSH] = since }
     }
 
     suspend fun getDeviceId(): String {
