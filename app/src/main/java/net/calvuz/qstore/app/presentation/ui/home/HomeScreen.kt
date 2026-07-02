@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import net.calvuz.qstore.app.domain.model.Article
 import net.calvuz.qstore.app.domain.model.Movement
@@ -41,6 +42,15 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    // HomeViewModel carica i dati con fetch one-shot, non Flow reattivi — senza questo,
+    // tornando qui dopo una sync (Impostazioni > Account) o dopo aver registrato un
+    // movimento altrove, la dashboard resta ferma allo snapshot di quando la ViewModel è
+    // stata creata finché non si preme manualmente il refresh in alto.
+    LifecycleResumeEffect(Unit) {
+        viewModel.refresh()
+        onPauseOrDispose { }
+    }
 
     Scaffold(
         topBar = {
