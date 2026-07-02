@@ -23,6 +23,8 @@ interface MovementRepository {
     suspend fun addMovement(
         articleUuid: String,
         type: MovementType,
+        fromLocationUuid: String?,
+        toLocationUuid: String?,
         quantity: Double,
         notes: String
     ): Result<Unit>

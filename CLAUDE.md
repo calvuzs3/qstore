@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Min SDK**: 33 (Android 13)
 - **Target SDK**: 35
 - **Kotlin**: 2.1.0 / JVM 17
-- **Current DB version**: 3
+- **Current DB version**: 4 (MIGRATION_3_4: multi-location — `locations`, `article_location_thresholds`, `movements.id` Long→UUID, `from_location_uuid`/`to_location_uuid`, `inventory` PK composta articolo+ubicazione, `MovementType.ADJUSTMENT`/`TRANSFER`)
 
 ## Build Commands
 
@@ -93,12 +93,14 @@ OpenCV is initialized asynchronously at application startup in `QuickStoreApplic
 
 Image files are stored at: `/data/data/net.calvuz.quickstore/files/article_images/{articleUuid}/`
 
-## Database Schema (v3)
+## Database Schema (v4)
 
-Tables: `articles`, `article_categories`, `inventory`, `movements`, `article_images`
+Tables: `articles`, `article_categories`, `inventory`, `movements`, `article_images`, `locations`, `article_location_thresholds`
 
-- All primary keys are UUIDs (TEXT), not auto-increment integers.
-- `inventory` is a separate table from `articles` — 1:1 relationship. Quantity is `Double` to support fractional units (kg, litres, metres).
+- All primary keys are UUIDs (TEXT), not auto-increment integers (`movements.id` was the one exception, migrated to UUID in v4).
+- `inventory` is a separate table from `articles`, now with a **composite PK** `(article_uuid, location_uuid)` — an article has one giacenza row per magazzino/ubicazione, not 1:1 with `articles` anymore. Quantity is `Double` to support fractional units (kg, litres, metres). Total quantity across locations is a SUM, not a stored value (see `InventoryDao.getTotalByArticle`).
+- `movements` is **append-only** (no update/delete in normal flow) and carries `from_location_uuid`/`to_location_uuid` (nullable): `IN` sets only `to`, `OUT` only `from`, `ADJUSTMENT` exactly one of the two, `TRANSFER` both (different locations) — see `MovementRepositoryImpl` for the unified debit/credit algorithm based on which fields are set, not on `type`.
+- `locations` = magazzini/ubicazioni (es. "Sede", "Furgone"). `article_location_thresholds` = soglia di riordino opzionale per coppia articolo/ubicazione (se assente, vale `articles.reorderLevel` sul totale).
 - Timestamps are UTC epoch milliseconds (`Long`). Display conversion to `LocalDateTime` happens only in the Presentation layer.
 - When adding a new DB version, add a `Migration` object in `Migrations.kt` and register it in `DatabaseModule`.
 
@@ -108,6 +110,8 @@ Backups are ZIP archives containing:
 - `metadata.json` — version info + SHA-256 checksums per component
 - `data/{categories,articles,inventory,movements,article_images}.json` — serialized with `kotlinx.serialization`
 - `images/{articleUuid}/*.jpg` — raw image files
+
+**Known limitation (as of v4/multi-location):** the backup format does not yet carry `locations` or the `from_location_uuid`/`to_location_uuid` on movements — `BackupSerializer`/`BackupRepositoryImpl` reassign everything to a freshly recreated "Magazzino principale" default location on restore, and any additional locations created before the backup are silently lost. Redesigning the backup format for multi-location was explicitly deferred to a dedicated future change (see comments in `BackupSerializer.kt`).
 - `settings/{display_settings,recognition_settings}.json`
 
 Before any restore, a safety backup is created automatically.
@@ -127,7 +131,7 @@ Both are exposed as `Flow<Settings>` from their repositories and observed in Vie
 ## Key Technical Notes
 
 - **Quantities**: `Double` throughout (inventory + movements) — supports fractional units.
-- **Stock warning**: triggered when `inventory.quantity <= article.reorderLevel`.
+- **Stock warning**: triggered when the article's TOTAL quantity across all locations (`InventoryDao.getTotalByArticle`, summed) `<= article.reorderLevel`. An optional per-location threshold also exists (`article_location_thresholds`), not yet wired into any UI warning.
 - **`AddArticle` screen is dual-mode**: create vs. edit is detected from whether the `articleId` nav argument is present (the `EditArticle` route also renders `AddArticleScreen`).
 - **OpenCV NDK ABI filters**: `armeabi-v7a`, `arm64-v8a`, `x86`, `x86_64` — all four are included.
 - **Keystore**: signing config reads from `keystore.properties` (not committed). Release builds require this file.

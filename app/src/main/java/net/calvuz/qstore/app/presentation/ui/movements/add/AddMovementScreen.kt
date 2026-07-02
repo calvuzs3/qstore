@@ -5,6 +5,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -330,6 +331,8 @@ private fun AddMovementContent(
                 val resultQty = when (state.type) {
                     MovementType.IN -> currentQty + newQuantity
                     MovementType.OUT -> currentQty - newQuantity
+                    // Non selezionabili da questa schermata (nessun picker ADJUSTMENT/TRANSFER ancora)
+                    MovementType.ADJUSTMENT, MovementType.TRANSFER -> currentQty
                 }
                 Text("Giacenza dopo movimento: $resultQty ${article.unitOfMeasure}")
             },
@@ -341,11 +344,15 @@ private fun AddMovementContent(
                     when (state.type) {
                         MovementType.IN -> Icons.Default.Add
                         MovementType.OUT -> Icons.Default.Remove
+                        MovementType.ADJUSTMENT -> Icons.Default.Edit
+                        MovementType.TRANSFER -> Icons.AutoMirrored.Filled.CompareArrows
                     },
                     contentDescription = null,
                     tint = when (state.type) {
                         MovementType.IN -> MaterialTheme.colorScheme.primary
                         MovementType.OUT -> MaterialTheme.colorScheme.error
+                        MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.tertiary
+                        MovementType.TRANSFER -> MaterialTheme.colorScheme.secondary
                     }
                 )
             },
@@ -423,6 +430,8 @@ private fun AddMovementContent(
                     when (state.type) {
                         MovementType.IN -> "Registra Carico"
                         MovementType.OUT -> "Registra Scarico"
+                        MovementType.ADJUSTMENT -> "Registra Rettifica"
+                        MovementType.TRANSFER -> "Registra Trasferimento"
                     }
                 )
             }

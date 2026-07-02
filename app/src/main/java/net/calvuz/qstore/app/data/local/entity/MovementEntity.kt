@@ -9,6 +9,15 @@ import net.calvuz.qstore.app.domain.model.enum.MovementType
 
 /**
  * Entity per la tabella movements - Storico movimentazioni magazzino
+ *
+ * APPEND-ONLY: nessun update, nessun delete previsto nel flusso normale — la giacenza
+ * per ubicazione si ricalcola sempre rigiocando questi movimenti, mai modificandoli.
+ *
+ * Regola per tipo (from/to location):
+ *   IN:         solo toLocationUuid
+ *   OUT:        solo fromLocationUuid
+ *   ADJUSTMENT: uno solo dei due (aumento->to, diminuzione->from)
+ *   TRANSFER:   entrambi, diversi tra loro
  */
 @Entity(
     tableName = "movements",
@@ -18,23 +27,43 @@ import net.calvuz.qstore.app.domain.model.enum.MovementType
             parentColumns = ["uuid"],
             childColumns = ["article_uuid"],
             onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = LocationEntity::class,
+            parentColumns = ["uuid"],
+            childColumns = ["from_location_uuid"],
+            onDelete = ForeignKey.RESTRICT // log storico: non si cancella una ubicazione con movimenti
+        ),
+        ForeignKey(
+            entity = LocationEntity::class,
+            parentColumns = ["uuid"],
+            childColumns = ["to_location_uuid"],
+            onDelete = ForeignKey.RESTRICT
         )
     ],
     indices = [
         Index(value = ["article_uuid"]),
-        Index(value = ["created_at"])
+        Index(value = ["created_at"]),
+        Index(value = ["from_location_uuid"]),
+        Index(value = ["to_location_uuid"])
     ]
 )
 data class MovementEntity(
-    @PrimaryKey(autoGenerate = true)
+    @PrimaryKey
     @ColumnInfo(name = "id")
-    val id: Long,
+    val id: String, // UUID — era Long autoGenerate, cambiato per compatibilità futura col sync multi-device
 
     @ColumnInfo(name = "article_uuid")
     val articleUuid: String,
 
     @ColumnInfo(name = "type")
     val type: MovementType,
+
+    @ColumnInfo(name = "from_location_uuid")
+    val fromLocationUuid: String?,
+
+    @ColumnInfo(name = "to_location_uuid")
+    val toLocationUuid: String?,
 
     @ColumnInfo(name = "quantity")
     val quantity: Double, // Double per supportare decimali

@@ -64,9 +64,13 @@ class BackupSerializer @Inject constructor() {
         )
     }
     
+    // TODO: formato di backup non ancora aggiornato per il multi-magazzino (deciso di
+    // rinviare a un turno dedicato) — fromLocationUuid/toLocationUuid dell'entity NON
+    // vengono preservati nel backup. id è un placeholder (0L): il formato usava un Long
+    // auto-incrementato, l'entity ora ha un UUID che non è rappresentabile in un Long.
     fun mapMovement(entity: MovementEntity): MovementBackup {
         return MovementBackup(
-            id = entity.id,
+            id = 0L,
             articleUuid = entity.articleUuid,
             type = entity.type.name,
             quantity = entity.quantity,
@@ -142,19 +146,32 @@ class BackupSerializer @Inject constructor() {
         )
     }
     
-    fun mapToInventory(backup: InventoryBackup): InventoryEntity {
+    // defaultLocationUuid: il formato di backup non porta ancora l'ubicazione (TODO sopra)
+    // — ogni riga ripristinata viene assegnata a questa ubicazione, risolta dal chiamante
+    // (BackupRepositoryImpl) al momento del restore.
+    fun mapToInventory(backup: InventoryBackup, defaultLocationUuid: String): InventoryEntity {
         return InventoryEntity(
             articleUuid = backup.articleUuid,
+            locationUuid = defaultLocationUuid,
             currentQuantity = backup.currentQuantity,
             lastMovementAt = backup.lastMovementAt
         )
     }
-    
-    fun mapToMovement(backup: MovementBackup): MovementEntity {
+
+    fun mapToMovement(backup: MovementBackup, defaultLocationUuid: String): MovementEntity {
+        val type = net.calvuz.qstore.app.domain.model.enum.MovementType.valueOf(backup.type)
+        // Stessa euristica IN/OUT usata da MIGRATION_3_4. ADJUSTMENT/TRANSFER non potevano
+        // esistere in backup precedenti a questa modifica; se compaiono in un backup più
+        // recente (fatto dopo l'aggiunta di questi tipi ma prima del redesign del formato),
+        // il from/to reale non è comunque preservato — vedi TODO su mapMovement.
+        val fromLocationUuid = if (type == net.calvuz.qstore.app.domain.model.enum.MovementType.OUT) defaultLocationUuid else null
+        val toLocationUuid = if (type == net.calvuz.qstore.app.domain.model.enum.MovementType.IN) defaultLocationUuid else null
         return MovementEntity(
-            id = backup.id,
+            id = java.util.UUID.randomUUID().toString(),
             articleUuid = backup.articleUuid,
-            type = net.calvuz.qstore.app.domain.model.enum.MovementType.valueOf(backup.type),
+            type = type,
+            fromLocationUuid = fromLocationUuid,
+            toLocationUuid = toLocationUuid,
             quantity = backup.quantity,
             notes = backup.notes,
             createdAt = backup.createdAt

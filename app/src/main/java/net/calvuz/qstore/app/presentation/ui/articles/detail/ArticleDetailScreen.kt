@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -613,17 +614,23 @@ private fun MovementCard(movement: Movement, unit: String) {
                         imageVector = when (movement.type) {
                             MovementType.IN -> Icons.Default.Add
                             MovementType.OUT -> Icons.Default.Remove
+                            MovementType.ADJUSTMENT -> Icons.Default.Edit
+                            MovementType.TRANSFER -> Icons.AutoMirrored.Filled.CompareArrows
                         },
                         contentDescription = null,
                         tint = when (movement.type) {
                             MovementType.IN -> MaterialTheme.colorScheme.primary
                             MovementType.OUT -> MaterialTheme.colorScheme.error
+                            MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.tertiary
+                            MovementType.TRANSFER -> MaterialTheme.colorScheme.secondary
                         }
                     )
                     Text(
                         text = when (movement.type) {
                             MovementType.IN -> "Carico"
                             MovementType.OUT -> "Scarico"
+                            MovementType.ADJUSTMENT -> "Rettifica"
+                            MovementType.TRANSFER -> "Trasferimento"
                         },
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
@@ -645,12 +652,14 @@ private fun MovementCard(movement: Movement, unit: String) {
             }
 
             Text(
-                text = "${if (movement.type == MovementType.IN) "+" else "-"}${movement.quantity} $unit",
+                text = "${if (movement.toLocationUuid != null) "+" else "-"}${movement.quantity} $unit",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = when (movement.type) {
                     MovementType.IN -> MaterialTheme.colorScheme.primary
                     MovementType.OUT -> MaterialTheme.colorScheme.error
+                    MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.tertiary
+                    MovementType.TRANSFER -> MaterialTheme.colorScheme.secondary
                 }
             )
         }

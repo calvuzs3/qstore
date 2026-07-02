@@ -17,6 +17,8 @@ class MovementMapper @Inject constructor() {
             id = entity.id,
             articleUuid = entity.articleUuid,
             type = entity.type,
+            fromLocationUuid = entity.fromLocationUuid,
+            toLocationUuid = entity.toLocationUuid,
             quantity = entity.quantity,
             notes = entity.notes,
             createdAt = entity.createdAt
@@ -31,6 +33,8 @@ class MovementMapper @Inject constructor() {
             id = domain.id,
             articleUuid = domain.articleUuid,
             type = domain.type,
+            fromLocationUuid = domain.fromLocationUuid,
+            toLocationUuid = domain.toLocationUuid,
             quantity = domain.quantity,
             notes = domain.notes,
             createdAt = domain.createdAt

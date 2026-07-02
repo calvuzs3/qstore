@@ -21,27 +21,14 @@ class InventoryMapper @Inject constructor() {
     }
 
     /**
-     * Converte da Domain Model a Entity
-     */
-    fun toEntity(domain: Inventory): InventoryEntity {
-        return InventoryEntity(
-            articleUuid = domain.articleUuid,
-            currentQuantity = domain.currentQuantity,
-            lastMovementAt = domain.lastMovementAt
-        )
-    }
-
-    /**
      * Converte una lista di Entity in lista di Domain Models
      */
     fun toDomainList(entities: List<InventoryEntity>): List<Inventory> {
         return entities.map { toDomain(it) }
     }
 
-    /**
-     * Converte lista di Domain Model a lista di Entity
-     */
-    fun toEntityList(inventories: List<Inventory>): List<InventoryEntity> {
-        return inventories.map { toEntity(it) }
-    }
+    // Nessun toEntity/toEntityList: Inventory (domain) non ha un'ubicazione, non è più
+    // rappresentabile 1:1 come InventoryEntity (chiave composta article_uuid+location_uuid).
+    // La scrittura dell'inventario passa sempre da MovementRepositoryImpl, mai da un
+    // mapping diretto Inventory -> InventoryEntity.
 }

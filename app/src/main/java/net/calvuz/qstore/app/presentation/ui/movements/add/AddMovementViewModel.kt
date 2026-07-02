@@ -177,6 +177,8 @@ class AddMovementViewModel @Inject constructor(
                 val movementType = when (currentState.type) {
                     MovementType.IN -> "Carico"
                     MovementType.OUT -> "Scarico"
+                    MovementType.ADJUSTMENT -> "Rettifica"
+                    MovementType.TRANSFER -> "Trasferimento"
                 }
                 _events.value = AddMovementEvent.ShowSuccess(
                     "$movementType registrato con successo"
