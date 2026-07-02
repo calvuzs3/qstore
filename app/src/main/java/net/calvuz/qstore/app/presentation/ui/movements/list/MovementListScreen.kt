@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -228,18 +229,24 @@ private fun MovementCard(
                 color = when (movement.type) {
                     MovementType.IN -> MaterialTheme.colorScheme.primaryContainer
                     MovementType.OUT -> MaterialTheme.colorScheme.errorContainer
+                    MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.tertiaryContainer
+                    MovementType.TRANSFER -> MaterialTheme.colorScheme.secondaryContainer
                 }
             ) {
                 Icon(
                     imageVector = when (movement.type) {
                         MovementType.IN -> Icons.Default.Add
                         MovementType.OUT -> Icons.Default.Remove
+                        MovementType.ADJUSTMENT -> Icons.Default.Edit
+                        MovementType.TRANSFER -> Icons.AutoMirrored.Filled.CompareArrows
                     },
                     contentDescription = null,
                     modifier = Modifier.padding(12.dp),
                     tint = when (movement.type) {
                         MovementType.IN -> MaterialTheme.colorScheme.onPrimaryContainer
                         MovementType.OUT -> MaterialTheme.colorScheme.onErrorContainer
+                        MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.onTertiaryContainer
+                        MovementType.TRANSFER -> MaterialTheme.colorScheme.onSecondaryContainer
                     }
                 )
             }
@@ -266,11 +273,15 @@ private fun MovementCard(
                     text = when (movement.type) {
                         MovementType.IN -> "Carico"
                         MovementType.OUT -> "Scarico"
+                        MovementType.ADJUSTMENT -> "Rettifica"
+                        MovementType.TRANSFER -> "Trasferimento"
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = when (movement.type) {
                         MovementType.IN -> MaterialTheme.colorScheme.primary
                         MovementType.OUT -> MaterialTheme.colorScheme.error
+                        MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.tertiary
+                        MovementType.TRANSFER -> MaterialTheme.colorScheme.secondary
                     }
                 )
 
@@ -297,12 +308,14 @@ private fun MovementCard(
                 verticalArrangement = Arrangement.Center
             ) {
                 Text(
-                    text = "${if (movement.type == MovementType.IN) "+" else "-"}${movement.quantity}",
+                    text = "${if (movement.toLocationUuid != null) "+" else "-"}${movement.quantity}",
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold,
                     color = when (movement.type) {
                         MovementType.IN -> MaterialTheme.colorScheme.primary
                         MovementType.OUT -> MaterialTheme.colorScheme.error
+                        MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.tertiary
+                        MovementType.TRANSFER -> MaterialTheme.colorScheme.secondary
                     }
                 )
 

@@ -12,11 +12,19 @@ import net.calvuz.qstore.app.data.mapper.MovementMapper
 import net.calvuz.qstore.app.domain.model.Movement
 import net.calvuz.qstore.app.domain.model.enum.MovementType
 import net.calvuz.qstore.app.domain.repository.MovementRepository
+import java.util.UUID
 import javax.inject.Inject
 
 
 /**
  * Implementazione del repository per movimentazioni
+ *
+ * L'aggiornamento inventario è un algoritmo unico basato su quali campi location sono
+ * valorizzati, non sul `type` — copre IN/OUT/ADJUSTMENT/TRANSFER senza branching per tipo:
+ *   fromLocationUuid != null -> debita quantity da (article, fromLocation), errore se
+ *                                andrebbe sotto zero
+ *   toLocationUuid   != null -> accredita quantity a (article, toLocation)
+ * Un TRANSFER valorizza entrambi (debito+credito nella stessa transazione, atomico).
  */
 class MovementRepositoryImpl @Inject constructor(
     private val database: QuickStoreDatabase,
@@ -27,34 +35,11 @@ class MovementRepositoryImpl @Inject constructor(
 
     override suspend fun addMovement(movement: Movement): Result<Unit> {
         return try {
-            // Operazione transazionale: inserisci movimento + aggiorna inventario
             database.withTransaction {
-                // Inserisci movimento
+                validateLocationsForType(movement.type, movement.fromLocationUuid, movement.toLocationUuid)
+                applyInventoryDelta(movement.articleUuid, movement.fromLocationUuid, movement.toLocationUuid, movement.quantity, movement.createdAt)
                 movementDao.insert(movementMapper.toEntity(movement))
-
-                // Aggiorna inventario
-                val inventory = inventoryDao.getByArticleUuid(movement.articleUuid)
-                    ?: throw IllegalStateException("Inventory not found for article ${movement.articleUuid}")
-
-                val newQuantity = when (movement.type) {
-                    MovementType.IN -> inventory.currentQuantity + movement.quantity
-                    MovementType.OUT -> {
-                        val result = inventory.currentQuantity - movement.quantity
-                        if (result < 0) {
-                            throw IllegalArgumentException("Insufficient quantity. Current: ${inventory.currentQuantity}, Requested: ${movement.quantity}")
-                        }
-                        result
-                    }
-                }
-
-                val updatedInventory = inventory.copy(
-                    currentQuantity = newQuantity,
-                    lastMovementAt = movement.createdAt
-                )
-
-                inventoryDao.update(updatedInventory)
             }
-
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -64,59 +49,76 @@ class MovementRepositoryImpl @Inject constructor(
     override suspend fun addMovement(
         articleUuid: String,
         type: MovementType,
+        fromLocationUuid: String?,
+        toLocationUuid: String?,
         quantity: Double,
         notes: String
     ): Result<Unit> {
         return try {
-            // Usa una transazione per garantire consistenza
             database.withTransaction {
-                // 1. Crea e inserisci il movimento
-                val movementEntity = MovementEntity(
-                    id = 0,
-                    articleUuid = articleUuid,
-                    type = type,
-                    quantity = quantity,
-                    notes = notes,
-                    createdAt = System.currentTimeMillis()
+                validateLocationsForType(type, fromLocationUuid, toLocationUuid)
+                val now = System.currentTimeMillis()
+                applyInventoryDelta(articleUuid, fromLocationUuid, toLocationUuid, quantity, now)
+                movementDao.insert(
+                    MovementEntity(
+                        id = UUID.randomUUID().toString(),
+                        articleUuid = articleUuid,
+                        type = type,
+                        fromLocationUuid = fromLocationUuid,
+                        toLocationUuid = toLocationUuid,
+                        quantity = quantity,
+                        notes = notes,
+                        createdAt = now
+                    )
                 )
-                movementDao.insert(movementEntity)
-
-                // 2. Aggiorna o crea l'inventario
-                val currentInventory = inventoryDao.getByArticleUuid(articleUuid)
-
-                if (currentInventory != null) {
-                    // Aggiorna inventario esistente
-                    val newQuantity = when (type) {
-                        MovementType.IN -> currentInventory.currentQuantity + quantity
-                        MovementType.OUT -> currentInventory.currentQuantity - quantity
-                    }
-
-                    inventoryDao.update(
-                        currentInventory.copy(
-                            currentQuantity = newQuantity,
-                            lastMovementAt = System.currentTimeMillis()
-                        )
-                    )
-                } else {
-                    // Crea nuovo inventario (primo movimento)
-                    val initialQuantity = when (type) {
-                        MovementType.IN -> quantity
-                        MovementType.OUT -> -quantity  // Negativo se primo movimento è scarico
-                    }
-
-                    inventoryDao.insert(
-                        InventoryEntity(
-                            articleUuid = articleUuid,
-                            currentQuantity = initialQuantity,
-                            lastMovementAt = System.currentTimeMillis()
-                        )
-                    )
-                }
             }
-
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    private fun validateLocationsForType(type: MovementType, from: String?, to: String?) {
+        val valid = when (type) {
+            MovementType.IN -> from == null && to != null
+            MovementType.OUT -> from != null && to == null
+            MovementType.ADJUSTMENT -> (from == null) != (to == null)
+            MovementType.TRANSFER -> from != null && to != null && from != to
+        }
+        require(valid) { "Combinazione type/fromLocationUuid/toLocationUuid non valida per $type (from=$from, to=$to)" }
+    }
+
+    private suspend fun applyInventoryDelta(
+        articleUuid: String,
+        fromLocationUuid: String?,
+        toLocationUuid: String?,
+        quantity: Double,
+        timestamp: Long
+    ) {
+        if (fromLocationUuid != null) {
+            val inventory = inventoryDao.getByArticleAndLocation(articleUuid, fromLocationUuid)
+                ?: InventoryEntity(articleUuid, fromLocationUuid, 0.0, timestamp)
+            val newQuantity = inventory.currentQuantity - quantity
+            if (newQuantity < 0) {
+                throw IllegalArgumentException(
+                    "Insufficient quantity at location $fromLocationUuid. Current: ${inventory.currentQuantity}, Requested: $quantity"
+                )
+            }
+            upsertInventory(inventory.copy(currentQuantity = newQuantity, lastMovementAt = timestamp))
+        }
+        if (toLocationUuid != null) {
+            val inventory = inventoryDao.getByArticleAndLocation(articleUuid, toLocationUuid)
+                ?: InventoryEntity(articleUuid, toLocationUuid, 0.0, timestamp)
+            upsertInventory(inventory.copy(currentQuantity = inventory.currentQuantity + quantity, lastMovementAt = timestamp))
+        }
+    }
+
+    private suspend fun upsertInventory(inventory: InventoryEntity) {
+        val existing = inventoryDao.getByArticleAndLocation(inventory.articleUuid, inventory.locationUuid)
+        if (existing != null) {
+            inventoryDao.update(inventory)
+        } else {
+            inventoryDao.insert(inventory)
         }
     }
 

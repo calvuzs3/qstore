@@ -4,9 +4,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import net.calvuz.qstore.app.data.local.database.ArticleDao
 import net.calvuz.qstore.app.data.local.database.InventoryDao
+import net.calvuz.qstore.app.data.local.database.LocationDao
 import net.calvuz.qstore.app.data.local.entity.InventoryEntity
 import net.calvuz.qstore.app.data.mapper.ArticleMapper
-import net.calvuz.qstore.app.data.mapper.InventoryMapper
 import net.calvuz.qstore.app.domain.model.Article
 import net.calvuz.qstore.app.domain.model.Inventory
 import net.calvuz.qstore.app.domain.repository.ArticleRepository
@@ -18,8 +18,8 @@ import javax.inject.Inject
 class ArticleRepositoryImpl @Inject constructor(
     private val articleDao: ArticleDao,
     private val inventoryDao: InventoryDao,
-    private val articleMapper: ArticleMapper,
-    private val inventoryMapper: InventoryMapper
+    private val locationDao: LocationDao,
+    private val articleMapper: ArticleMapper
 ) : ArticleRepository {
 
     override suspend fun getByUuid(uuid: String): Result<Article?> {
@@ -47,9 +47,12 @@ class ArticleRepositoryImpl @Inject constructor(
             // Inserisci articolo
             articleDao.insert(articleMapper.toEntity(article))
 
-            // Crea inventario iniziale
+            // Crea inventario iniziale sull'unica/prima ubicazione disponibile — non esiste
+            // ancora una UI per scegliere l'ubicazione in fase di creazione articolo.
+            val locationUuid = resolveDefaultLocationUuid()
             val inventory = InventoryEntity(
                 articleUuid = article.uuid,
+                locationUuid = locationUuid,
                 currentQuantity = initialQuantity,
                 lastMovementAt = article.createdAt
             )
@@ -114,10 +117,15 @@ class ArticleRepositoryImpl @Inject constructor(
         }
     }
 
+    // Giacenza TOTALE dell'articolo, sommata su tutte le ubicazioni — non esiste ancora
+    // una UI per mostrare/gestire la giacenza per singola ubicazione.
     override suspend fun getInventory(articleUuid: String): Result<Inventory?> {
         return try {
-            val entity = inventoryDao.getByArticleUuid(articleUuid)
-            val inventory = entity?.let { inventoryMapper.toDomain(it) }
+            val total = inventoryDao.getTotalByArticle(articleUuid)
+            val quantity = total.totalQuantity
+            val inventory = quantity?.let {
+                Inventory(articleUuid, it, total.lastMovementAt ?: 0L)
+            }
             Result.success(inventory)
         } catch (e: Exception) {
             Result.failure(e)
@@ -125,8 +133,8 @@ class ArticleRepositoryImpl @Inject constructor(
     }
 
     override fun observeInventory(articleUuid: String): Flow<Inventory?> {
-        return inventoryDao.observeByArticleUuid(articleUuid).map { entity ->
-            entity?.let { inventoryMapper.toDomain(it) }
+        return inventoryDao.observeTotalByArticle(articleUuid).map { total ->
+            total.totalQuantity?.let { Inventory(articleUuid, it, total.lastMovementAt ?: 0L) }
         }
     }
 
@@ -138,4 +146,10 @@ class ArticleRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
+
+    private suspend fun resolveDefaultLocationUuid(): String =
+        locationDao.getAll().firstOrNull()?.uuid
+            ?: throw IllegalStateException(
+                "Nessuna ubicazione disponibile — attesa almeno 'Magazzino principale' creata dalla migrazione"
+            )
 }

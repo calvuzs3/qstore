@@ -3,6 +3,7 @@ package net.calvuz.qstore.app.domain.usecase.movement
 import net.calvuz.qstore.app.domain.model.Movement
 import net.calvuz.qstore.app.domain.model.enum.MovementType
 import net.calvuz.qstore.app.domain.repository.ArticleRepository
+import net.calvuz.qstore.app.domain.repository.LocationRepository
 import net.calvuz.qstore.app.domain.repository.MovementRepository
 import javax.inject.Inject
 
@@ -11,14 +12,17 @@ import javax.inject.Inject
  *
  * Questa operazione è transazionale:
  * - Inserisce il movimento nello storico
- * - Aggiorna l'inventario dell'articolo
+ * - Aggiorna l'inventario dell'articolo per l'ubicazione interessata
  */
 class AddMovementUseCase @Inject constructor(
     private val movementRepository: MovementRepository,
-    private val articleRepository: ArticleRepository
+    private val articleRepository: ArticleRepository,
+    private val locationRepository: LocationRepository
 ) {
     /**
-     * Registra una movimentazione (entrata o uscita)
+     * Registra una movimentazione IN/OUT sull'ubicazione di default (la prima disponibile).
+     * Non esiste ancora una UI per scegliere l'ubicazione — questo overload resta identico
+     * a prima della migrazione multi-magazzino per non rompere i chiamanti esistenti.
      *
      * @param articleUuid UUID dell'articolo
      * @param type Tipo movimentazione (IN/OUT)
@@ -29,6 +33,39 @@ class AddMovementUseCase @Inject constructor(
     suspend operator fun invoke(
         articleUuid: String,
         type: MovementType,
+        quantity: Double,
+        notes: String = ""
+    ): Result<Movement> {
+        require(type == MovementType.IN || type == MovementType.OUT) {
+            "Questo overload supporta solo IN/OUT; usa invoke(articleUuid, type, fromLocationUuid, toLocationUuid, quantity, notes) per ADJUSTMENT/TRANSFER"
+        }
+
+        val defaultLocationUuid = locationRepository.getAll()
+            .getOrElse { return Result.failure(it) }
+            .firstOrNull()?.uuid
+            ?: return Result.failure(IllegalStateException("Nessuna ubicazione disponibile"))
+
+        return invoke(
+            articleUuid = articleUuid,
+            type = type,
+            fromLocationUuid = if (type == MovementType.OUT) defaultLocationUuid else null,
+            toLocationUuid = if (type == MovementType.IN) defaultLocationUuid else null,
+            quantity = quantity,
+            notes = notes
+        )
+    }
+
+    /**
+     * Registra una movimentazione con ubicazioni esplicite — copre anche ADJUSTMENT e TRANSFER.
+     *
+     * @param fromLocationUuid richiesto per OUT/TRANSFER, opzionale per ADJUSTMENT in diminuzione
+     * @param toLocationUuid richiesto per IN/TRANSFER, opzionale per ADJUSTMENT in aumento
+     */
+    suspend operator fun invoke(
+        articleUuid: String,
+        type: MovementType,
+        fromLocationUuid: String?,
+        toLocationUuid: String?,
         quantity: Double,
         notes: String = ""
     ): Result<Movement> {
@@ -51,43 +88,33 @@ class AddMovementUseCase @Inject constructor(
             return Result.failure(IllegalArgumentException("Article not found"))
         }
 
-        // Verifica disponibilità per uscite
-        if (type == MovementType.OUT) {
-            val inventory = articleRepository.getInventory(articleUuid)
-                .getOrElse {
-                    return Result.failure(it)
-                }
-
-            if (inventory == null) {
-                return Result.failure(IllegalStateException("Inventory not found"))
-            }
-
-            if (inventory.currentQuantity < quantity) {
-                return Result.failure(
-                    IllegalArgumentException(
-                        "Insufficient quantity. Available: ${inventory.currentQuantity}, Requested: $quantity"
-                    )
-                )
-            }
-        }
-
-        // Crea movimento
-        val movement = Movement(
-            id = 0,
+        // Registra movimento (transazionale con update inventario per ubicazione,
+        // include il controllo di disponibilità per i debiti — vedi MovementRepositoryImpl)
+        val result = movementRepository.addMovement(
             articleUuid = articleUuid,
             type = type,
+            fromLocationUuid = fromLocationUuid,
+            toLocationUuid = toLocationUuid,
             quantity = quantity,
-            notes = notes.trim(),
-            createdAt  = System.currentTimeMillis()
+            notes = notes.trim()
         )
 
-        // Registra movimento (transazionale con update inventory)
-        return movementRepository.addMovement(movement)
-            .map { movement }
+        return result.map {
+            Movement(
+                id = "", // il repository genera l'id reale; questo Result serve solo da conferma
+                articleUuid = articleUuid,
+                type = type,
+                fromLocationUuid = fromLocationUuid,
+                toLocationUuid = toLocationUuid,
+                quantity = quantity,
+                notes = notes.trim(),
+                createdAt = System.currentTimeMillis()
+            )
+        }
     }
 
     /**
-     * Shortcut per registrare un'entrata
+     * Shortcut per registrare un'entrata sull'ubicazione di default
      */
     suspend fun addIncoming(
         articleUuid: String,
@@ -98,7 +125,7 @@ class AddMovementUseCase @Inject constructor(
     }
 
     /**
-     * Shortcut per registrare un'uscita
+     * Shortcut per registrare un'uscita dall'ubicazione di default
      */
     suspend fun addOutgoing(
         articleUuid: String,

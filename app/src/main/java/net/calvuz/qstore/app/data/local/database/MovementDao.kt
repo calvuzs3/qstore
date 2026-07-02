@@ -24,9 +24,6 @@ interface MovementDao {
     suspend fun getAllMovements(): List<MovementEntity>
 
     @Query("SELECT * FROM movements WHERE id = :id")
-    suspend fun getById(id: Long): MovementEntity?
-
-    @Query("SELECT * FROM movements WHERE id = :id")
     suspend fun getById(id: String): MovementEntity?
 
     @Query("SELECT * FROM movements WHERE article_uuid = :articleUuid ORDER BY created_at DESC")
@@ -77,9 +74,16 @@ interface MovementDao {
     @Query("SELECT COUNT(*) FROM movements WHERE created_at >= :todayStart")
     suspend fun getTodayCount(todayStart: Long): Int
 
+    // Basata su from/to location, non su `type`: un TRANSFER ha sia from che to valorizzati
+    // (sposta scorta tra due ubicazioni proprie) e deve nettare a zero sul totale
+    // dell'articolo, non essere trattato come un IN o un OUT. Vedi anche
+    // InventoryDao.getTotalQuantityByArticle, che legge la cache invece di ricalcolare.
     @Query("""
-        SELECT SUM(CASE WHEN type = 'IN' THEN quantity ELSE -quantity END) 
-        FROM movements 
+        SELECT SUM(
+            (CASE WHEN to_location_uuid IS NOT NULL THEN quantity ELSE 0 END) -
+            (CASE WHEN from_location_uuid IS NOT NULL THEN quantity ELSE 0 END)
+        )
+        FROM movements
         WHERE article_uuid = :articleUuid
     """)
     suspend fun calculateTotalQuantity(articleUuid: String): Double?

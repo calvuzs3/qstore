@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.withContext
 import net.calvuz.qstore.BuildConfig
 import net.calvuz.qstore.app.data.local.database.*
+import net.calvuz.qstore.app.data.local.entity.LocationEntity
 import net.calvuz.qstore.app.data.local.storage.ImageStorageManager
 import net.calvuz.qstore.backup.data.serializer.BackupSerializer
 import net.calvuz.qstore.backup.data.zip.BackupContentProvider
@@ -37,6 +38,7 @@ class BackupRepositoryImpl @Inject constructor(
     private val articleCategoryDao: ArticleCategoryDao,
     private val inventoryDao: InventoryDao,
     private val movementDao: MovementDao,
+    private val locationDao: LocationDao,
     private val articleImageDao: ArticleImageDao,
     private val imageStorageManager: ImageStorageManager,
     private val displaySettingsRepository: DisplaySettingsRepository,
@@ -334,27 +336,43 @@ class BackupRepositoryImpl @Inject constructor(
             
             // Usa query dirette per svuotare
             clearAllTables()
-            
+
             // 9. Elimina tutte le immagini esistenti
             progressCallback("Pulizia immagini...", 0.45f)
             clearAllImages()
-            
+
+            // clearAllTables() svuota anche `locations` — il formato di backup non porta
+            // ancora le ubicazioni (TODO in BackupSerializer), quindi va ricreata subito
+            // l'ubicazione di default, altrimenti inventario/movimenti non hanno dove
+            // essere assegnati.
+            val now = System.currentTimeMillis()
+            val defaultLocationUuid = java.util.UUID.randomUUID().toString()
+            locationDao.insert(
+                LocationEntity(
+                    uuid = defaultLocationUuid,
+                    name = "Magazzino principale",
+                    notes = "",
+                    createdAt = now,
+                    updatedAt = now
+                )
+            )
+
             // 10. Inserisci i nuovi dati (in ordine FK)
             progressCallback("Ripristino categorie...", 0.50f)
             categories.forEach { category ->
                 articleCategoryDao.insert(serializer.mapToCategory(category))
             }
-            
+
             progressCallback("Ripristino articoli...", 0.55f)
             articles.forEach { article ->
                 articleDao.insert(serializer.mapToArticle(article))
             }
-            
+
             progressCallback("Ripristino inventario...", 0.60f)
             inventory.forEach { inv ->
-                inventoryDao.insert(serializer.mapToInventory(inv))
+                inventoryDao.insert(serializer.mapToInventory(inv, defaultLocationUuid))
             }
-            
+
             progressCallback("Ripristino immagini articoli...", 0.65f)
             articleImages.forEach { image ->
                 val entity = serializer.mapToArticleImage(image)
@@ -363,7 +381,7 @@ class BackupRepositoryImpl @Inject constructor(
 
             progressCallback("Ripristino movimenti...", 0.70f)
             movements.forEach { movement ->
-                movementDao.insert(serializer.mapToMovement(movement).copy(id = 0))
+                movementDao.insert(serializer.mapToMovement(movement, defaultLocationUuid))
             }
             
             // 11. Ripristina i file delle immagini

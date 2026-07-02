@@ -7,17 +7,19 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import net.calvuz.qstore.app.data.mapper.ArticleImageMapper
 import net.calvuz.qstore.app.data.mapper.ArticleMapper
-import net.calvuz.qstore.app.data.mapper.InventoryMapper
+import net.calvuz.qstore.app.data.mapper.LocationMapper
 import net.calvuz.qstore.app.data.mapper.MovementMapper
 import net.calvuz.qstore.categories.data.repository.ArticleCategoryRepositoryImpl
 import net.calvuz.qstore.app.data.repository.ArticleRepositoryImpl
 import net.calvuz.qstore.app.data.repository.ImageRecognitionRepositoryImpl
 import net.calvuz.qstore.app.data.repository.InventoryRepositoryImpl
+import net.calvuz.qstore.app.data.repository.LocationRepositoryImpl
 import net.calvuz.qstore.app.data.repository.MovementRepositoryImpl
 import net.calvuz.qstore.categories.domain.repository.ArticleCategoryRepository
 import net.calvuz.qstore.app.domain.repository.ArticleRepository
 import net.calvuz.qstore.app.domain.repository.ImageRecognitionRepository
 import net.calvuz.qstore.app.domain.repository.InventoryRepository
+import net.calvuz.qstore.app.domain.repository.LocationRepository
 import net.calvuz.qstore.app.domain.repository.MovementRepository
 import net.calvuz.qstore.settings.domain.repository.RecognitionSettingsRepository
 import net.calvuz.qstore.settings.domain.usecase.ApplyRecognitionPresetUseCase
@@ -62,6 +64,12 @@ abstract class RepositoryModule {
     abstract fun bindInventoryRepository(
         impl: InventoryRepositoryImpl
     ): InventoryRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindLocationRepository(
+        impl: LocationRepositoryImpl
+    ): LocationRepository
 }
 
 
@@ -82,12 +90,6 @@ object MapperModule {
 
     @Provides
     @Singleton
-    fun provideInventoryMapper(): InventoryMapper {
-        return InventoryMapper()
-    }
-
-    @Provides
-    @Singleton
     fun provideMovementMapper(): MovementMapper {
         return MovementMapper()
     }
@@ -96,6 +98,12 @@ object MapperModule {
     @Singleton
     fun provideArticleImageMapper(): ArticleImageMapper {
         return ArticleImageMapper()
+    }
+
+    @Provides
+    @Singleton
+    fun provideLocationMapper(): LocationMapper {
+        return LocationMapper()
     }
 }
 

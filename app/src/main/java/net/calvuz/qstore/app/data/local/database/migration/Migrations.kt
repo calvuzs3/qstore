@@ -169,3 +169,151 @@ val MIGRATION_1_2 = object : Migration(1, 2) {
     }
 }
 
+/**
+ * Migration da versione 3 a 4 - Multi-magazzino (ubicazioni)
+ *
+ * - Aggiunge tabella locations (magazzini/ubicazioni) con una ubicazione di default
+ *   ("Magazzino principale") a cui vengono assegnati tutti i movimenti/giacenze esistenti
+ * - Aggiunge tabella article_location_thresholds (soglia di riordino opzionale per
+ *   coppia articolo/ubicazione)
+ * - Rebuild di movements: id da Long autoGenerate a TEXT (UUID), aggiunge
+ *   from_location_uuid/to_location_uuid. I vecchi movimenti IN prendono
+ *   to_location_uuid = ubicazione di default, i vecchi OUT prendono
+ *   from_location_uuid = ubicazione di default — coerente con la regola per tipo
+ *   (necessario perché in futuro il sync validerà questa combinazione)
+ * - Rebuild di inventory: da PK singola (article_uuid) a chiave composta
+ *   (article_uuid, location_uuid), tutte le righe esistenti assegnate all'ubicazione
+ *   di default
+ *
+ * NON aggiunge org_id/created_by: non esiste ancora un concetto di org/utente loggato
+ * lato client (arriveranno in una migrazione successiva insieme al modulo auth).
+ */
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        val now = System.currentTimeMillis()
+
+        // 1. Crea tabella locations
+        database.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS locations (
+                uuid TEXT NOT NULL PRIMARY KEY,
+                name TEXT NOT NULL,
+                notes TEXT NOT NULL DEFAULT '',
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+            """.trimIndent()
+        )
+        database.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_locations_name ON locations (name)")
+
+        // 2. Ubicazione di default per i dati esistenti
+        val defaultLocationUuid = UUID.randomUUID().toString()
+        database.execSQL(
+            """
+            INSERT INTO locations (uuid, name, notes, created_at, updated_at)
+            VALUES ('$defaultLocationUuid', 'Magazzino principale', '', $now, $now)
+            """.trimIndent()
+        )
+
+        // 3. Crea tabella article_location_thresholds (vuota, feature opt-in)
+        database.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS article_location_thresholds (
+                uuid TEXT NOT NULL PRIMARY KEY,
+                article_uuid TEXT NOT NULL,
+                location_uuid TEXT NOT NULL,
+                reorder_level REAL NOT NULL,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                FOREIGN KEY (article_uuid) REFERENCES articles(uuid) ON DELETE CASCADE,
+                FOREIGN KEY (location_uuid) REFERENCES locations(uuid) ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+        database.execSQL(
+            "CREATE UNIQUE INDEX IF NOT EXISTS index_article_location_thresholds_article_uuid_location_uuid " +
+                "ON article_location_thresholds (article_uuid, location_uuid)"
+        )
+        database.execSQL(
+            "CREATE INDEX IF NOT EXISTS index_article_location_thresholds_location_uuid " +
+                "ON article_location_thresholds (location_uuid)"
+        )
+
+        // 4. Rebuild movements: id Long -> TEXT (UUID), + from/to location
+        database.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS movements_new (
+                id TEXT NOT NULL PRIMARY KEY,
+                article_uuid TEXT NOT NULL,
+                type TEXT NOT NULL,
+                from_location_uuid TEXT,
+                to_location_uuid TEXT,
+                quantity REAL NOT NULL,
+                notes TEXT NOT NULL,
+                created_at INTEGER NOT NULL,
+                FOREIGN KEY (article_uuid) REFERENCES articles(uuid) ON DELETE CASCADE,
+                FOREIGN KEY (from_location_uuid) REFERENCES locations(uuid) ON DELETE RESTRICT,
+                FOREIGN KEY (to_location_uuid) REFERENCES locations(uuid) ON DELETE RESTRICT
+            )
+            """.trimIndent()
+        )
+
+        val movementsCursor = database.query("SELECT id, article_uuid, type, quantity, notes, created_at FROM movements")
+        movementsCursor.use {
+            while (it.moveToNext()) {
+                val articleUuid = it.getString(it.getColumnIndexOrThrow("article_uuid"))
+                val type = it.getString(it.getColumnIndexOrThrow("type"))
+                val quantity = it.getDouble(it.getColumnIndexOrThrow("quantity"))
+                val notes = it.getString(it.getColumnIndexOrThrow("notes"))
+                val createdAt = it.getLong(it.getColumnIndexOrThrow("created_at"))
+
+                val newId = UUID.randomUUID().toString()
+                val fromLocationUuid = if (type == "OUT") defaultLocationUuid else null
+                val toLocationUuid = if (type == "IN") defaultLocationUuid else null
+
+                database.execSQL(
+                    """
+                    INSERT INTO movements_new (id, article_uuid, type, from_location_uuid, to_location_uuid, quantity, notes, created_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """.trimIndent(),
+                    arrayOf<Any?>(newId, articleUuid, type, fromLocationUuid, toLocationUuid, quantity, notes, createdAt)
+                )
+            }
+        }
+
+        database.execSQL("DROP TABLE movements")
+        database.execSQL("ALTER TABLE movements_new RENAME TO movements")
+        database.execSQL("CREATE INDEX IF NOT EXISTS index_movements_article_uuid ON movements (article_uuid)")
+        database.execSQL("CREATE INDEX IF NOT EXISTS index_movements_created_at ON movements (created_at)")
+        database.execSQL("CREATE INDEX IF NOT EXISTS index_movements_from_location_uuid ON movements (from_location_uuid)")
+        database.execSQL("CREATE INDEX IF NOT EXISTS index_movements_to_location_uuid ON movements (to_location_uuid)")
+
+        // 5. Rebuild inventory: PK singola (article_uuid) -> composta (article_uuid, location_uuid)
+        database.execSQL(
+            """
+            CREATE TABLE IF NOT EXISTS inventory_new (
+                article_uuid TEXT NOT NULL,
+                location_uuid TEXT NOT NULL,
+                current_quantity REAL NOT NULL,
+                last_movement_at INTEGER NOT NULL,
+                PRIMARY KEY (article_uuid, location_uuid),
+                FOREIGN KEY (article_uuid) REFERENCES articles(uuid) ON DELETE CASCADE,
+                FOREIGN KEY (location_uuid) REFERENCES locations(uuid) ON DELETE CASCADE
+            )
+            """.trimIndent()
+        )
+
+        database.execSQL(
+            """
+            INSERT INTO inventory_new (article_uuid, location_uuid, current_quantity, last_movement_at)
+            SELECT article_uuid, '$defaultLocationUuid', current_quantity, last_movement_at
+            FROM inventory
+            """.trimIndent()
+        )
+
+        database.execSQL("DROP TABLE inventory")
+        database.execSQL("ALTER TABLE inventory_new RENAME TO inventory")
+        database.execSQL("CREATE INDEX IF NOT EXISTS index_inventory_location_uuid ON inventory (location_uuid)")
+    }
+}
+

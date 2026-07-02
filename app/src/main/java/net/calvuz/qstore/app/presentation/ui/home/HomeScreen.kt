@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -410,11 +411,15 @@ private fun RecentMovementCard(movement: Movement) {
                 when (movement.type) {
                     MovementType.IN -> Icons.Default.ArrowDownward
                     MovementType.OUT -> Icons.Default.ArrowUpward
+                    MovementType.ADJUSTMENT -> Icons.Default.Edit
+                    MovementType.TRANSFER -> Icons.AutoMirrored.Filled.CompareArrows
                 },
                 contentDescription = null,
                 tint = when (movement.type) {
                     MovementType.IN -> MaterialTheme.colorScheme.primary
                     MovementType.OUT -> MaterialTheme.colorScheme.error
+                    MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.tertiary
+                    MovementType.TRANSFER -> MaterialTheme.colorScheme.secondary
                 }
             )
 
@@ -423,6 +428,8 @@ private fun RecentMovementCard(movement: Movement) {
                     when (movement.type) {
                         MovementType.IN -> "Carico"
                         MovementType.OUT -> "Scarico"
+                        MovementType.ADJUSTMENT -> "Rettifica"
+                        MovementType.TRANSFER -> "Trasferimento"
                     },
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold
@@ -437,12 +444,14 @@ private fun RecentMovementCard(movement: Movement) {
             }
 
             Text(
-                "${if (movement.type == MovementType.IN) "+" else "-"}${movement.quantity}",
+                "${if (movement.toLocationUuid != null) "+" else "-"}${movement.quantity}",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = when (movement.type) {
                     MovementType.IN -> MaterialTheme.colorScheme.primary
                     MovementType.OUT -> MaterialTheme.colorScheme.error
+                    MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.tertiary
+                    MovementType.TRANSFER -> MaterialTheme.colorScheme.secondary
                 }
             )
         }

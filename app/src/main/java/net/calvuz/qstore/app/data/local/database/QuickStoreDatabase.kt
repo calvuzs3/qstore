@@ -5,7 +5,9 @@ import androidx.room.RoomDatabase
 import net.calvuz.qstore.app.data.local.entity.ArticleCategoryEntity
 import net.calvuz.qstore.app.data.local.entity.ArticleEntity
 import net.calvuz.qstore.app.data.local.entity.ArticleImageEntity
+import net.calvuz.qstore.app.data.local.entity.ArticleLocationThresholdEntity
 import net.calvuz.qstore.app.data.local.entity.InventoryEntity
+import net.calvuz.qstore.app.data.local.entity.LocationEntity
 import net.calvuz.qstore.app.data.local.entity.MovementEntity
 import net.calvuz.qstore.categories.data.local.ArticleCategoryDao
 
@@ -18,7 +20,9 @@ import net.calvuz.qstore.categories.data.local.ArticleCategoryDao
         ArticleCategoryEntity::class,
         InventoryEntity::class,
         MovementEntity::class,
-        ArticleImageEntity::class
+        ArticleImageEntity::class,
+        LocationEntity::class,
+        ArticleLocationThresholdEntity::class
     ],
     version = QuickStoreDatabase.DATABASE_VERSION,
     exportSchema = false
@@ -31,9 +35,11 @@ abstract class QuickStoreDatabase: RoomDatabase() {
     abstract fun inventoryDao(): InventoryDao
     abstract fun movementDao(): MovementDao
     abstract fun articleImageDao(): ArticleImageDao
+    abstract fun locationDao(): LocationDao
+    abstract fun articleLocationThresholdDao(): ArticleLocationThresholdDao
 
     companion object {
         const val DATABASE_NAME = "warehouse_db"
-        const val DATABASE_VERSION = 3
+        const val DATABASE_VERSION = 4
     }
 }

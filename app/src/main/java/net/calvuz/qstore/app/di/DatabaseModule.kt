@@ -10,11 +10,14 @@ import dagger.hilt.components.SingletonComponent
 import net.calvuz.qstore.categories.data.local.ArticleCategoryDao
 import net.calvuz.qstore.app.data.local.database.ArticleDao
 import net.calvuz.qstore.app.data.local.database.ArticleImageDao
+import net.calvuz.qstore.app.data.local.database.ArticleLocationThresholdDao
 import net.calvuz.qstore.app.data.local.database.InventoryDao
+import net.calvuz.qstore.app.data.local.database.LocationDao
 import net.calvuz.qstore.app.data.local.database.MovementDao
 import net.calvuz.qstore.app.data.local.database.QuickStoreDatabase
 import net.calvuz.qstore.app.data.local.database.migration.MIGRATION_1_2
 import net.calvuz.qstore.app.data.local.database.migration.MIGRATION_2_3
+import net.calvuz.qstore.app.data.local.database.migration.MIGRATION_3_4
 import javax.inject.Singleton
 
 /**
@@ -37,6 +40,7 @@ object DatabaseModule {
             //.fallbackToDestructiveMigration() // Solo per sviluppo, rimuovere in produzione
             .addMigrations(MIGRATION_1_2)
             .addMigrations(MIGRATION_2_3)
+            .addMigrations(MIGRATION_3_4)
             .build()
     }
 
@@ -68,5 +72,17 @@ object DatabaseModule {
     @Singleton
     fun provideArticleImageDao(database: QuickStoreDatabase): ArticleImageDao {
         return database.articleImageDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideLocationDao(database: QuickStoreDatabase): LocationDao {
+        return database.locationDao()
+    }
+
+    @Provides
+    @Singleton
+    fun provideArticleLocationThresholdDao(database: QuickStoreDatabase): ArticleLocationThresholdDao {
+        return database.articleLocationThresholdDao()
     }
 }
