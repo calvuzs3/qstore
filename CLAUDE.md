@@ -40,7 +40,7 @@ Room schema is exported to `app/schemas/` (configured via KSP arg `room.schemaLo
 Strict Clean Architecture in three layers. The package root splits into two namespaces:
 
 - `net.calvuz.qstore.app.*` — core app (articles, inventory, movements, camera/recognition)
-- `net.calvuz.qstore.<feature>.*` — self-contained feature modules: `backup`, `categories`, `export`, `settings`, `auth`
+- `net.calvuz.qstore.<feature>.*` — self-contained feature modules: `backup`, `categories`, `export`, `settings`, `auth`, `sync`
 
 Each feature module and the core app follow the same internal layout:
 
@@ -137,7 +137,22 @@ QuickStore remains fully usable offline with no account — `auth` is opt-in, re
 - JWT is stored raw (not decomposed) in `TokenStore`, an `EncryptedSharedPreferences` (Keystore-backed) — never `DataStore`, since this is a credential, not a preference. `orgName` isn't a JWT claim, so it's persisted alongside the token to survive app restarts without a fresh login.
 - `JwtDecoder` reads claims (`sub`, `orgId`, `roleLevel`, `roleCode`, `exp`) client-side without verifying the signature — the server already verified it when issuing the token; the client only needs the claims to rebuild `Session` on restart and to check local expiry.
 - Network client: Ktor (OkHttp engine) pinned to **3.1.3**, not the newer 3.5.0 used by `quickstore-server` — QuickStore is on Kotlin 2.1.0 and later Ktor releases ship binary metadata requiring Kotlin 2.3.x.
-- `MIGRATION_3_4`→`v5` (not yet done) will add `org_id`/`created_by` to synced entities once this module proves out the session/token plumbing — see `quickstore-server/CLAUDE.md` for the full sync design this feeds into.
+- Login errors: `AuthApi` checks `response.status` **before** reading the body — this Ktor client has `expectSuccess = false`, so a 401 with a plain-text body ("Invalid credentials", not JSON) doesn't throw on its own; reading it as JSON without the status check first surfaces a raw deserialization exception instead of a clean message.
+- `MIGRATION_4_5` added `movements.created_by` (nullable — populated from the active session at creation time, null for offline/no-account rows). `org_id` on synced entities remains deferred: the wire DTOs never carry it anyway (the server injects it from the JWT), so it's only needed locally if a single device ever works across multiple orgs, which isn't yet a real scenario.
+
+## Sync (manual push/pull, optional — requires a session)
+
+First working version of the `sync` module: a **manual** "Sincronizza ora" button (Settings > Account, shown once logged in) — no WebSocket nudge or background `WorkManager` pull yet, deliberately deferred to keep this phase testable in isolation.
+
+- `SyncRepositoryImpl.syncNow()`: push then pull, always in this order — push whatever changed locally since the last cursor, then pull whatever changed remotely.
+- **Push**: queries each DAO's `getUpdatedSince(cursor)` (`getCreatedSince` for `movements`, append-only) across all 6 synced entities (`article_categories`, `locations`, `articles`, `article_location_thresholds`, `movements`, `article_images`), maps to the DTOs mirrored 1:1 from `quickstore-server`. `movements.createdBy` falls back to the current session's `userId` if a row predates any login.
+- **Pull**: applies the response in server dependency order (categories → locations → articles → thresholds → movements → images) with the same last-write-wins discipline as the server (`dto.updatedAt <= existing.updatedAt` → skip). Pulled movements go through `MovementRepository.ingestPulledMovement()`, not a raw DAO insert — it also replays the inventory delta (debit/credit) so the local `inventory` cache stays consistent with movement history; skips if the id already exists (idempotent) and never re-validates availability (the server already accepted it from the other device).
+- Cursor (`since`) and a stable per-install `deviceId` live in `SyncLocalStore` (its own DataStore, `sync_state`).
+
+**Known limitations of this first version** (see comments in `SyncRepositoryImpl.kt`):
+- Local entities (`article_categories`, `articles`, `locations`, `article_location_thresholds`, `article_images`) have **no `isDeleted` flag** — local deletions are hard-deletes and never propagate to the server. A remote deletion (`isDeleted=true` in a pull) *is* applied locally (row deleted). Fixing the local→remote direction needs its own migration adding soft-delete everywhere, not done here.
+- `article_images` has no `updated_at` locally; `created_at` is used as a stand-in on both sides of the sync.
+- No WebSocket client, no periodic background sync — sync only happens when the user taps the button.
 
 ## Key Technical Notes
 

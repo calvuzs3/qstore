@@ -1,10 +1,12 @@
 package net.calvuz.qstore.app.domain.usecase.movement
 
+import kotlinx.coroutines.flow.first
 import net.calvuz.qstore.app.domain.model.Movement
 import net.calvuz.qstore.app.domain.model.enum.MovementType
 import net.calvuz.qstore.app.domain.repository.ArticleRepository
 import net.calvuz.qstore.app.domain.repository.LocationRepository
 import net.calvuz.qstore.app.domain.repository.MovementRepository
+import net.calvuz.qstore.auth.domain.usecase.ObserveSessionUseCase
 import javax.inject.Inject
 
 /**
@@ -17,7 +19,8 @@ import javax.inject.Inject
 class AddMovementUseCase @Inject constructor(
     private val movementRepository: MovementRepository,
     private val articleRepository: ArticleRepository,
-    private val locationRepository: LocationRepository
+    private val locationRepository: LocationRepository,
+    private val observeSessionUseCase: ObserveSessionUseCase
 ) {
     /**
      * Registra una movimentazione IN/OUT sull'ubicazione di default (la prima disponibile).
@@ -88,6 +91,10 @@ class AddMovementUseCase @Inject constructor(
             return Result.failure(IllegalArgumentException("Article not found"))
         }
 
+        // null se non loggato: l'app resta utilizzabile offline senza account, il sync
+        // client attribuirà queste righe storiche all'utente della sessione al momento del push.
+        val createdBy = observeSessionUseCase().first()?.userId
+
         // Registra movimento (transazionale con update inventario per ubicazione,
         // include il controllo di disponibilità per i debiti — vedi MovementRepositoryImpl)
         val result = movementRepository.addMovement(
@@ -96,7 +103,8 @@ class AddMovementUseCase @Inject constructor(
             fromLocationUuid = fromLocationUuid,
             toLocationUuid = toLocationUuid,
             quantity = quantity,
-            notes = notes.trim()
+            notes = notes.trim(),
+            createdBy = createdBy
         )
 
         return result.map {
@@ -108,7 +116,8 @@ class AddMovementUseCase @Inject constructor(
                 toLocationUuid = toLocationUuid,
                 quantity = quantity,
                 notes = notes.trim(),
-                createdAt = System.currentTimeMillis()
+                createdAt = System.currentTimeMillis(),
+                createdBy = createdBy
             )
         }
     }

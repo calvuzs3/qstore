@@ -15,6 +15,7 @@ import net.calvuz.qstore.auth.domain.usecase.LoginUseCase
 import net.calvuz.qstore.auth.domain.usecase.LogoutUseCase
 import net.calvuz.qstore.auth.domain.usecase.ObserveSessionUseCase
 import net.calvuz.qstore.auth.domain.usecase.SelectOrganizationUseCase
+import net.calvuz.qstore.sync.domain.usecase.SyncNowUseCase
 import javax.inject.Inject
 
 sealed class LoginUiState {
@@ -33,7 +34,12 @@ sealed class LoginUiState {
     ) : LoginUiState()
 
     /** Sessione già presente all'apertura dello schermo, o appena ottenuta con un login fresco. */
-    data class AlreadyLoggedIn(val session: Session, val isLoggingOut: Boolean = false) : LoginUiState()
+    data class AlreadyLoggedIn(
+        val session: Session,
+        val isLoggingOut: Boolean = false,
+        val isSyncing: Boolean = false,
+        val syncMessage: String? = null
+    ) : LoginUiState()
 
     /** Transiente: solo per far scattare onLoggedIn() dopo un login appena riuscito. */
     data object JustLoggedIn : LoginUiState()
@@ -44,6 +50,7 @@ class LoginViewModel @Inject constructor(
     private val loginUseCase: LoginUseCase,
     private val selectOrganizationUseCase: SelectOrganizationUseCase,
     private val logoutUseCase: LogoutUseCase,
+    private val syncNowUseCase: SyncNowUseCase,
     observeSessionUseCase: ObserveSessionUseCase
 ) : ViewModel() {
 
@@ -112,6 +119,27 @@ class LoginViewModel @Inject constructor(
         viewModelScope.launch {
             logoutUseCase()
             _uiState.value = LoginUiState.LoginForm()
+        }
+    }
+
+    fun syncNow() {
+        val state = _uiState.value as? LoginUiState.AlreadyLoggedIn ?: return
+        _uiState.value = state.copy(isSyncing = true, syncMessage = null)
+
+        viewModelScope.launch {
+            syncNowUseCase()
+                .onSuccess { summary ->
+                    val current = _uiState.value as? LoginUiState.AlreadyLoggedIn ?: return@onSuccess
+                    _uiState.value = current.copy(
+                        isSyncing = false,
+                        syncMessage = "Sincronizzato: ${summary.pushedCount} inviati, ${summary.pulledCount} ricevuti" +
+                            if (summary.rejectedCount > 0) ", ${summary.rejectedCount} rifiutati" else ""
+                    )
+                }
+                .onFailure { throwable ->
+                    val current = _uiState.value as? LoginUiState.AlreadyLoggedIn ?: return@onFailure
+                    _uiState.value = current.copy(isSyncing = false, syncMessage = throwable.message ?: "Errore di sincronizzazione")
+                }
         }
     }
 }

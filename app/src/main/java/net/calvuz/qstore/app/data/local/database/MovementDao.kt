@@ -91,4 +91,11 @@ interface MovementDao {
     @Query("SELECT COUNT(*) FROM movements WHERE article_uuid = :articleUuid")
     suspend fun countByArticle(articleUuid: String): Int
 
+    /**
+     * Righe create dopo il cursore di sync — usata per costruire il payload di push.
+     * Basata su created_at, non updated_at: movements è append-only, non ha updated_at.
+     */
+    @Query("SELECT * FROM movements WHERE created_at > :since")
+    suspend fun getCreatedSince(since: Long): List<MovementEntity>
+
 }

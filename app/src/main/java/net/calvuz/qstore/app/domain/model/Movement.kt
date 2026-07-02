@@ -22,6 +22,7 @@ data class Movement(
     val toLocationUuid: String?,
     val quantity: Double,              // Quantità movimentata
     val notes: String,                 // Note aggiuntive
-    val createdAt: Long                // UTC timestamp milliseconds
+    val createdAt: Long,                // UTC timestamp milliseconds
+    val createdBy: String? = null       // userId di chi era loggato — null se offline/senza account
 )
 

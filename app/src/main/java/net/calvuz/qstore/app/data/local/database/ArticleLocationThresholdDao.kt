@@ -24,4 +24,11 @@ interface ArticleLocationThresholdDao {
 
     @Query("SELECT * FROM article_location_thresholds WHERE article_uuid = :articleUuid")
     fun observeByArticle(articleUuid: String): Flow<List<ArticleLocationThresholdEntity>>
+
+    @Query("SELECT * FROM article_location_thresholds WHERE uuid = :uuid")
+    suspend fun getByUuid(uuid: String): ArticleLocationThresholdEntity?
+
+    /** Righe modificate dopo il cursore di sync — usata per costruire il payload di push. */
+    @Query("SELECT * FROM article_location_thresholds WHERE updated_at > :since")
+    suspend fun getUpdatedSince(since: Long): List<ArticleLocationThresholdEntity>
 }

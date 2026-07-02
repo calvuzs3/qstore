@@ -317,3 +317,17 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
+/**
+ * Migration da versione 4 a 5 - Attribuzione utente sui movimenti
+ *
+ * Aggiunge movements.created_by (nullable): colonna additiva semplice, nessun rebuild di
+ * tabella necessario (a differenza delle migrazioni precedenti che cambiavano tipo/PK).
+ * Le righe esistenti restano con created_by = NULL — il sync client, al momento del
+ * push, le attribuisce all'utente della sessione corrente come fallback.
+ */
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL("ALTER TABLE movements ADD COLUMN created_by TEXT DEFAULT NULL")
+    }
+}
+

@@ -52,7 +52,8 @@ class MovementRepositoryImpl @Inject constructor(
         fromLocationUuid: String?,
         toLocationUuid: String?,
         quantity: Double,
-        notes: String
+        notes: String,
+        createdBy: String?
     ): Result<Unit> {
         return try {
             database.withTransaction {
@@ -68,9 +69,34 @@ class MovementRepositoryImpl @Inject constructor(
                         toLocationUuid = toLocationUuid,
                         quantity = quantity,
                         notes = notes,
-                        createdAt = now
+                        createdAt = now,
+                        createdBy = createdBy
                     )
                 )
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Inserisce un movimento arrivato da /sync/pull (creato da un altro device), applicando
+     * lo stesso delta di inventario di un movimento locale ma senza rivalidare la
+     * disponibilità: il server l'ha già accettato quando l'altro device l'ha pushato, non
+     * ha senso rifiutarlo qui per un disallineamento locale dell'inventario. Idempotente:
+     * se l'id esiste già (retry di una pull) non fa nulla.
+     */
+    override suspend fun ingestPulledMovement(movement: Movement): Result<Unit> {
+        return try {
+            database.withTransaction {
+                if (movementDao.getById(movement.id) == null) {
+                    applyInventoryDelta(
+                        movement.articleUuid, movement.fromLocationUuid, movement.toLocationUuid,
+                        movement.quantity, movement.createdAt, strict = false
+                    )
+                    movementDao.insert(movementMapper.toEntity(movement))
+                }
             }
             Result.success(Unit)
         } catch (e: Exception) {
@@ -93,13 +119,14 @@ class MovementRepositoryImpl @Inject constructor(
         fromLocationUuid: String?,
         toLocationUuid: String?,
         quantity: Double,
-        timestamp: Long
+        timestamp: Long,
+        strict: Boolean = true
     ) {
         if (fromLocationUuid != null) {
             val inventory = inventoryDao.getByArticleAndLocation(articleUuid, fromLocationUuid)
                 ?: InventoryEntity(articleUuid, fromLocationUuid, 0.0, timestamp)
             val newQuantity = inventory.currentQuantity - quantity
-            if (newQuantity < 0) {
+            if (strict && newQuantity < 0) {
                 throw IllegalArgumentException(
                     "Insufficient quantity at location $fromLocationUuid. Current: ${inventory.currentQuantity}, Requested: $quantity"
                 )

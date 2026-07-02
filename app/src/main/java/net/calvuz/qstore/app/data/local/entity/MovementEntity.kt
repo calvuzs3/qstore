@@ -72,5 +72,12 @@ data class MovementEntity(
     val notes: String,
 
     @ColumnInfo(name = "created_at")
-    val createdAt: Long // Unix timestamp UTC in milliseconds
+    val createdAt: Long, // Unix timestamp UTC in milliseconds
+
+    // Nullable: l'app resta utilizzabile offline senza account, i movimenti creati senza
+    // sessione attiva non hanno un utente da attribuire finché non si fa login. Il sync
+    // client, al momento del push, usa l'utente della sessione corrente come fallback per
+    // le righe storiche con questo campo nullo.
+    @ColumnInfo(name = "created_by")
+    val createdBy: String? = null
 )
