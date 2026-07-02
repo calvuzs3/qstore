@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Il server di sincronizzazione (quickstore-server) oggi gira senza TLS su un IP
+    privato di una VM, non dietro un dominio/reverse-proxy — serve permettere il
+    traffico HTTP in chiaro, bloccato di default da Android (min SDK 33).
+    Da restringere (o rimuovere) se/quando il server sarà servito solo via HTTPS.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
