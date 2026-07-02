@@ -9,7 +9,49 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Min SDK**: 33 (Android 13)
 - **Target SDK**: 35
 - **Kotlin**: 2.1.0 / JVM 17
-- **Current DB version**: 4 (MIGRATION_3_4: multi-location — `locations`, `article_location_thresholds`, `movements.id` Long→UUID, `from_location_uuid`/`to_location_uuid`, `inventory` PK composta articolo+ubicazione, `MovementType.ADJUSTMENT`/`TRANSFER`)
+- **Current DB version**: 5 (MIGRATION_3_4: multi-location — `locations`, `article_location_thresholds`, `movements.id` Long→UUID, `from_location_uuid`/`to_location_uuid`, `inventory` PK composta articolo+ubicazione, `MovementType.ADJUSTMENT`/`TRANSFER`; MIGRATION_4_5: `movements.created_by`)
+
+## Stato attuale — sync multi-device (HANDOFF, 2026-07-02)
+
+QuickStore sta passando da app puramente offline a un modello opzionale multi-device: un
+backend dedicato (`../quickstore-server`, Ktor + Postgres, repo separato) più due nuovi
+feature module qui (`auth`, `sync`). **L'app resta comunque fruibile offline al 100% senza
+mai fare login** — questo è un requisito guida, non un dettaglio.
+
+**Verificato end-to-end** (device fisico reale, contro `https://quickstore.calvuz.net`):
+login (diretto e multi-org con select-org), messaggi di errore puliti (niente eccezioni
+tecniche a schermo), push+pull manuale con dati reali già presenti sul device.
+
+**In corso di verifica dall'utente**: pull "da zero" su un device/emulatore vergine mai
+sincronizzato prima (`since=0`) — è il test che stressa di più l'ordine di dipendenza
+dell'upsert (categorie → ubicazioni → articoli → soglie → movimenti → immagini) e i
+vincoli FK di Room.
+
+**Non ancora fatto** (elencato per priorità presunta, nessun ordine impegnativo):
+1. Canale WebSocket (`ws /sync/ws`) per il nudge near-realtime + `WorkManager` per una
+   pull periodica di sicurezza — il server li supporta già, lato Android sono
+   deliberatamente rinviati (vedi sezione "Sync" più sotto) per verificare push/pull
+   manuale in isolamento prima di aggiungere l'automazione in background.
+2. Propagazione delle cancellazioni locali → server: le entity locali non hanno un flag
+   `isDeleted`, quindi oggi solo la direzione server → locale funziona (vedi sezione
+   "Sync"). Richiederebbe un'altra migrazione Room.
+3. Upload/download delle immagini reali (JPEG): il server ha già
+   `POST/GET /images/upload|download/{id}` (vedi `quickstore-server/CLAUDE.md` sezione 9),
+   ma il payload di sync qui porta solo `featuresData` (i descrittori OpenCV, piccoli,
+   via Base64) — il file JPEG vero non viaggia ancora.
+4. UI di gestione membership (invita/cambia ruolo/rimuovi) e lettura audit log: gli
+   endpoint server esistono (`quickstore-server/CLAUDE.md` sezione 9), nessuna schermata
+   Android li usa ancora.
+5. `org_id` sulle entity sincronizzate: deciso di **non** aggiungerlo (i DTO di rete non lo
+   portano comunque, lo inietta il server dal JWT) a meno che non emerga un vero bisogno
+   di isolare dati multi-org sullo stesso device.
+6. Redesign del formato di backup per il multi-magazzino (rinviato quando abbiamo fatto la
+   migrazione v3→v4 — vedi sezione "Backup Format" più sotto): il backup/restore ZIP
+   ignora ancora `locations`.
+
+Dettagli architetturali del server (schema, sicurezza multi-tenant, endpoint) sono in
+`../quickstore-server/CLAUDE.md` — quello resta la fonte autoritativa lato server, questo
+file copre solo il client Android.
 
 ## Build Commands
 
