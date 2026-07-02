@@ -29,5 +29,8 @@ data class ArticleCategoryEntity(
     val createdAt: Long,
 
     @ColumnInfo(name = "updated_at")
-    val updatedAt: Long
+    val updatedAt: Long,
+
+    @ColumnInfo(name = "is_deleted", defaultValue = "0")
+    val isDeleted: Boolean = false
 )

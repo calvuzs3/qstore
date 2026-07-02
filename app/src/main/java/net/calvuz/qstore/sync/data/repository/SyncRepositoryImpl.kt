@@ -13,6 +13,7 @@ import net.calvuz.qstore.app.data.local.database.ArticleImageDao
 import net.calvuz.qstore.app.data.local.database.ArticleLocationThresholdDao
 import net.calvuz.qstore.app.data.local.database.LocationDao
 import net.calvuz.qstore.app.data.local.database.MovementDao
+import net.calvuz.qstore.app.data.local.storage.ImageStorageManager
 import net.calvuz.qstore.app.data.local.entity.ArticleCategoryEntity
 import net.calvuz.qstore.app.data.local.entity.ArticleEntity
 import net.calvuz.qstore.app.data.local.entity.ArticleImageEntity
@@ -48,13 +49,17 @@ private val log = Timber.tag("Sync")
  * pull delle modifiche altrui, con upsert last-write-wins (stessa disciplina del server —
  * vedi quickstore-server/CLAUDE.md sezione 6).
  *
+ * Cancellazioni: le entity locali (article_categories, articles, locations,
+ * article_location_thresholds, article_images) hanno un flag isDeleted — una cancellazione
+ * locale diventa un soft-delete (vedi i rispettivi repository), viene raccolta dalla stessa
+ * query getUpdatedSince già usata per gli update normali (una cancellazione è concettualmente
+ * solo un altro update) e propagata al server qui. Una cancellazione remota (isDeleted=true
+ * in arrivo) viene invece applicata come DELETE fisico locale — nessun bisogno di tenere un
+ * tombstone locale per qualcosa che il server ci ha già confermato cancellato. `movements`
+ * resta escluso deliberatamente: è un log append-only, non ha senso "cancellarlo" così.
+ *
  * Limiti noti di questa prima versione (nessun WebSocket/WorkManager ancora):
- * - Le entity locali (article_categories, articles, locations,
- *   article_location_thresholds, article_images) non hanno un flag isDeleted — le
- *   cancellazioni locali sono hard-delete e non vengono propagate al server; una
- *   cancellazione remota invece viene applicata localmente (isDeleted=true in arrivo ->
- *   riga cancellata qui).
- * - article_images non ha updated_at lato client: si usa created_at come proxy.
+ * - No WebSocket client, no periodic background sync — solo push/pull manuale.
  */
 class SyncRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -67,7 +72,8 @@ class SyncRepositoryImpl @Inject constructor(
     private val articleLocationThresholdDao: ArticleLocationThresholdDao,
     private val movementDao: MovementDao,
     private val movementRepository: MovementRepository,
-    private val articleImageDao: ArticleImageDao
+    private val articleImageDao: ArticleImageDao,
+    private val imageStorageManager: ImageStorageManager
 ) : SyncRepository {
 
     override suspend fun syncNow(): Result<SyncSummary> {
@@ -166,23 +172,23 @@ class SyncRepositoryImpl @Inject constructor(
 
     private fun ArticleCategoryEntity.toDto() = ArticleCategoryDto(
         id = uuid, name = name, description = description, notes = notes,
-        createdAt = createdAt, updatedAt = updatedAt, isDeleted = false
+        createdAt = createdAt, updatedAt = updatedAt, isDeleted = isDeleted
     )
 
     private fun ArticleEntity.toDto() = ArticleDto(
         id = uuid, name = name, description = description, categoryId = categoryId,
         unitOfMeasure = unitOfMeasure, reorderLevel = reorderLevel, notes = notes,
         codeOem = codeOEM, codeErp = codeERP, codeBm = codeBM,
-        createdAt = createdAt, updatedAt = updatedAt, isDeleted = false
+        createdAt = createdAt, updatedAt = updatedAt, isDeleted = isDeleted
     )
 
     private fun LocationEntity.toDto() = LocationDto(
-        id = uuid, name = name, notes = notes, createdAt = createdAt, updatedAt = updatedAt, isDeleted = false
+        id = uuid, name = name, notes = notes, createdAt = createdAt, updatedAt = updatedAt, isDeleted = isDeleted
     )
 
     private fun ArticleLocationThresholdEntity.toDto() = ArticleLocationThresholdDto(
         id = uuid, articleId = articleUuid, locationId = locationUuid, reorderLevel = reorderLevel,
-        createdAt = createdAt, updatedAt = updatedAt, isDeleted = false
+        createdAt = createdAt, updatedAt = updatedAt, isDeleted = isDeleted
     )
 
     private fun net.calvuz.qstore.app.data.local.entity.MovementEntity.toDto(fallbackUserId: String) = MovementDto(
@@ -194,7 +200,7 @@ class SyncRepositoryImpl @Inject constructor(
     private fun ArticleImageEntity.toDto() = ArticleImageDto(
         id = uuid, articleId = articleUuid, imagePath = imagePath,
         featuresData = Base64.encodeToString(featuresData, Base64.NO_WRAP),
-        createdAt = createdAt, updatedAt = createdAt, isDeleted = false
+        createdAt = createdAt, updatedAt = updatedAt, isDeleted = isDeleted
     )
 
     // ===== PULL — upsert LWW, ordine di dipendenza: categories -> locations -> articles ->
@@ -317,11 +323,14 @@ class SyncRepositoryImpl @Inject constructor(
     private suspend fun upsertImage(dto: ArticleImageDto) {
         val existing = articleImageDao.getByUuid(dto.id)
         if (dto.isDeleted) {
-            existing?.let { articleImageDao.delete(it) }
+            if (existing != null) {
+                imageStorageManager.deleteImage(existing.imagePath)
+                articleImageDao.delete(existing)
+            }
             log.d("image ${dto.id} deleted (remoto)")
             return
         }
-        if (existing != null && dto.updatedAt <= existing.createdAt) { // niente updatedAt locale, confronto su createdAt
+        if (existing != null && dto.updatedAt <= existing.updatedAt) {
             log.v("image ${dto.id} skip (stale)")
             return
         }
@@ -329,6 +338,7 @@ class SyncRepositoryImpl @Inject constructor(
             uuid = dto.id, articleUuid = dto.articleId, imagePath = dto.imagePath,
             featuresData = Base64.decode(dto.featuresData, Base64.NO_WRAP),
             createdAt = existing?.createdAt ?: dto.createdAt,
+            updatedAt = dto.updatedAt,
             isUploaded = true // arrivata via pull: per definizione già sul server
         )
         if (existing != null) articleImageDao.insertOrReplace(entity) else articleImageDao.insert(entity)
