@@ -19,6 +19,7 @@ import net.calvuz.qstore.app.data.local.database.migration.MIGRATION_1_2
 import net.calvuz.qstore.app.data.local.database.migration.MIGRATION_2_3
 import net.calvuz.qstore.app.data.local.database.migration.MIGRATION_3_4
 import net.calvuz.qstore.app.data.local.database.migration.MIGRATION_4_5
+import net.calvuz.qstore.app.data.local.database.migration.MIGRATION_5_6
 import javax.inject.Singleton
 
 /**
@@ -43,6 +44,7 @@ object DatabaseModule {
             .addMigrations(MIGRATION_2_3)
             .addMigrations(MIGRATION_3_4)
             .addMigrations(MIGRATION_4_5)
+            .addMigrations(MIGRATION_5_6)
             .build()
     }
 

@@ -331,3 +331,18 @@ val MIGRATION_4_5 = object : Migration(4, 5) {
     }
 }
 
+/**
+ * Migration da versione 5 a 6 - Tracciamento upload foto (sync immagini in background)
+ *
+ * Aggiunge article_images.is_uploaded (default 0/false): le righe esistenti sono trattate
+ * come "da caricare" — comprende sia foto scattate solo su questo device (corretto, vanno
+ * caricate) sia foto arrivate in passato via pull da un altro device prima che questa
+ * colonna esistesse (ri-caricate una volta, innocuo ma ridondante — il server sovrascrive
+ * per id). Da qui in avanti SyncRepositoryImpl marca is_uploaded=true per le righe pull.
+ */
+val MIGRATION_5_6 = object : Migration(5, 6) {
+    override fun migrate(database: SupportSQLiteDatabase) {
+        database.execSQL("ALTER TABLE article_images ADD COLUMN is_uploaded INTEGER NOT NULL DEFAULT 0")
+    }
+}
+

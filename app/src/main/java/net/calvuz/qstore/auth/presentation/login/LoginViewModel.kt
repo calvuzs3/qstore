@@ -15,6 +15,8 @@ import net.calvuz.qstore.auth.domain.usecase.LoginUseCase
 import net.calvuz.qstore.auth.domain.usecase.LogoutUseCase
 import net.calvuz.qstore.auth.domain.usecase.ObserveSessionUseCase
 import net.calvuz.qstore.auth.domain.usecase.SelectOrganizationUseCase
+import net.calvuz.qstore.sync.domain.usecase.ObserveAllowMeteredNetworkUseCase
+import net.calvuz.qstore.sync.domain.usecase.SetAllowMeteredNetworkUseCase
 import net.calvuz.qstore.sync.domain.usecase.SyncNowUseCase
 import javax.inject.Inject
 
@@ -44,7 +46,8 @@ sealed class LoginUiState {
         val isLoggingOut: Boolean = false,
         val isSyncing: Boolean = false,
         val syncMessage: String? = null,
-        val justLoggedIn: Boolean = false
+        val justLoggedIn: Boolean = false,
+        val allowMeteredNetwork: Boolean = false
     ) : LoginUiState()
 }
 
@@ -54,6 +57,8 @@ class LoginViewModel @Inject constructor(
     private val selectOrganizationUseCase: SelectOrganizationUseCase,
     private val logoutUseCase: LogoutUseCase,
     private val syncNowUseCase: SyncNowUseCase,
+    private val observeAllowMeteredNetworkUseCase: ObserveAllowMeteredNetworkUseCase,
+    private val setAllowMeteredNetworkUseCase: SetAllowMeteredNetworkUseCase,
     observeSessionUseCase: ObserveSessionUseCase
 ) : ViewModel() {
 
@@ -63,7 +68,10 @@ class LoginViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             observeSessionUseCase().first()?.let { session ->
-                _uiState.value = LoginUiState.AlreadyLoggedIn(session)
+                _uiState.value = LoginUiState.AlreadyLoggedIn(
+                    session = session,
+                    allowMeteredNetwork = observeAllowMeteredNetworkUseCase().first()
+                )
             }
         }
     }
@@ -89,7 +97,9 @@ class LoginViewModel @Inject constructor(
                 .onSuccess { result ->
                     _uiState.value = when (result) {
                         is LoginResult.Authenticated -> LoginUiState.AlreadyLoggedIn(
-                            session = result.session, justLoggedIn = true
+                            session = result.session,
+                            justLoggedIn = true,
+                            allowMeteredNetwork = observeAllowMeteredNetworkUseCase().first()
                         )
                         is LoginResult.OrganizationSelectionRequired -> LoginUiState.OrgSelection(
                             pendingToken = result.pendingToken,
@@ -110,12 +120,22 @@ class LoginViewModel @Inject constructor(
         viewModelScope.launch {
             selectOrganizationUseCase(state.pendingToken, orgId)
                 .onSuccess { session ->
-                    _uiState.value = LoginUiState.AlreadyLoggedIn(session = session, justLoggedIn = true)
+                    _uiState.value = LoginUiState.AlreadyLoggedIn(
+                        session = session,
+                        justLoggedIn = true,
+                        allowMeteredNetwork = observeAllowMeteredNetworkUseCase().first()
+                    )
                 }
                 .onFailure { throwable ->
                     _uiState.value = state.copy(isLoading = false, error = throwable.message ?: "Errore di selezione organizzazione")
                 }
         }
+    }
+
+    fun setAllowMeteredNetwork(allow: Boolean) {
+        val state = _uiState.value as? LoginUiState.AlreadyLoggedIn ?: return
+        _uiState.value = state.copy(allowMeteredNetwork = allow)
+        viewModelScope.launch { setAllowMeteredNetworkUseCase(allow) }
     }
 
     fun clearJustLoggedIn() {

@@ -66,6 +66,26 @@ class ImageStorageManager @Inject constructor(
     }
 
     /**
+     * Scrive i byte JPEG grezzi (già validi, arrivati da /images/download/{id}) esattamente
+     * al path relativo indicato — a differenza di [saveImage] non rigenera un nome file
+     * random né ricomprime il bitmap: il path relativo (es. "articleUuid/xyz.jpg") è lo
+     * stesso su tutti i device, viene solo replicato in locale.
+     */
+    fun writeImageAtPath(relativePath: String, imageData: ByteArray): Result<Unit> {
+        return try {
+            val imageFile = File(imagesDir, relativePath)
+            imageFile.parentFile?.mkdirs()
+            FileOutputStream(imageFile).use { out -> out.write(imageData) }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /** true se il file JPEG per questo path relativo esiste già su disco. */
+    fun imageExists(relativePath: String): Boolean = File(imagesDir, relativePath).exists()
+
+    /**
      * Legge un'immagine dal path relativo
      *
      * @param relativePath Path relativo (es: "uuid/image.jpg")

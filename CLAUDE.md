@@ -9,7 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Min SDK**: 33 (Android 13)
 - **Target SDK**: 35
 - **Kotlin**: 2.1.0 / JVM 17
-- **Current DB version**: 5 (MIGRATION_3_4: multi-location — `locations`, `article_location_thresholds`, `movements.id` Long→UUID, `from_location_uuid`/`to_location_uuid`, `inventory` PK composta articolo+ubicazione, `MovementType.ADJUSTMENT`/`TRANSFER`; MIGRATION_4_5: `movements.created_by`)
+- **Current DB version**: 6 (MIGRATION_3_4: multi-location — `locations`, `article_location_thresholds`, `movements.id` Long→UUID, `from_location_uuid`/`to_location_uuid`, `inventory` PK composta articolo+ubicazione, `MovementType.ADJUSTMENT`/`TRANSFER`; MIGRATION_4_5: `movements.created_by`; MIGRATION_5_6: `article_images.is_uploaded`)
 
 ## Stato attuale — sync multi-device (HANDOFF, 2026-07-02)
 
@@ -18,34 +18,44 @@ backend dedicato (`../quickstore-server`, Ktor + Postgres, repo separato) più d
 feature module qui (`auth`, `sync`). **L'app resta comunque fruibile offline al 100% senza
 mai fare login** — questo è un requisito guida, non un dettaglio.
 
-**Verificato end-to-end** (device fisico reale, contro `https://quickstore.calvuz.net`):
-login (diretto e multi-org con select-org), messaggi di errore puliti (niente eccezioni
-tecniche a schermo), push+pull manuale con dati reali già presenti sul device.
+**Verificato end-to-end** (device fisico reale + virtual device, contro
+`https://quickstore.calvuz.net`): login (diretto e multi-org con select-org), messaggi di
+errore puliti (niente eccezioni tecniche a schermo), push+pull manuale con dati reali,
+pull "da zero" su device vergine (fresh install, ordine di dipendenza dell'upsert e
+vincoli FK di Room verificati funzionanti tramite log Timber). Bug trovati e corretti in
+questo giro: la schermata di login non si aggiornava subito dopo il login riuscito; Home
+non si aggiornava mai tornando dalla sync (fetch one-shot senza refresh automatico); un
+`Result` scartato in `ingestMovement` poteva far sparire silenziosamente un fallimento di
+inventario (ora loggato e riportato in `SyncSummary.failedMovements`).
 
-**In corso di verifica dall'utente**: pull "da zero" su un device/emulatore vergine mai
-sincronizzato prima (`since=0`) — è il test che stressa di più l'ordine di dipendenza
-dell'upsert (categorie → ubicazioni → articoli → soglie → movimenti → immagini) e i
-vincoli FK di Room.
+**Appena aggiunto, non ancora testato su device reale**: `ImageTransferWorker`
+(WorkManager + Hilt), accodato automaticamente a fine `syncNow()` — carica su
+`/images/upload/{id}` i JPEG scattati su questo device e non ancora sul server
+(`article_images.is_uploaded=false`), scarica da `/images/download/{id}` quelli il cui
+metadato è arrivato via pull ma il cui file non esiste ancora in locale. Gira come
+foreground service (notifica di avanzamento, canale `image_transfer`) — richiede il
+permesso runtime POST_NOTIFICATIONS (richiesto in `LoginScreen` quando si entra in
+`AlreadyLoggedIn`, min SDK è già 33 quindi sempre necessario). Vincolo di rete
+configurabile (switch in Impostazioni > Account: solo wifi di default, o anche dati
+mobili) — vedi `SyncSettingsRepository`/`SyncLocalStore`. Compila pulito (build da zero
+con KSP/Hilt) ma non ancora verificato end-to-end con foto reali su un device.
 
 **Non ancora fatto** (elencato per priorità presunta, nessun ordine impegnativo):
 1. Canale WebSocket (`ws /sync/ws`) per il nudge near-realtime + `WorkManager` per una
-   pull periodica di sicurezza — il server li supporta già, lato Android sono
-   deliberatamente rinviati (vedi sezione "Sync" più sotto) per verificare push/pull
-   manuale in isolamento prima di aggiungere l'automazione in background.
+   pull periodica di sicurezza (dei *metadati*, non delle foto — quello esiste già) — il
+   server li supporta già, lato Android sono deliberatamente rinviati (vedi sezione
+   "Sync" più sotto) per verificare push/pull manuale in isolamento prima di aggiungere
+   l'automazione in background.
 2. Propagazione delle cancellazioni locali → server: le entity locali non hanno un flag
    `isDeleted`, quindi oggi solo la direzione server → locale funziona (vedi sezione
    "Sync"). Richiederebbe un'altra migrazione Room.
-3. Upload/download delle immagini reali (JPEG): il server ha già
-   `POST/GET /images/upload|download/{id}` (vedi `quickstore-server/CLAUDE.md` sezione 9),
-   ma il payload di sync qui porta solo `featuresData` (i descrittori OpenCV, piccoli,
-   via Base64) — il file JPEG vero non viaggia ancora.
-4. UI di gestione membership (invita/cambia ruolo/rimuovi) e lettura audit log: gli
+3. UI di gestione membership (invita/cambia ruolo/rimuovi) e lettura audit log: gli
    endpoint server esistono (`quickstore-server/CLAUDE.md` sezione 9), nessuna schermata
    Android li usa ancora.
-5. `org_id` sulle entity sincronizzate: deciso di **non** aggiungerlo (i DTO di rete non lo
+4. `org_id` sulle entity sincronizzate: deciso di **non** aggiungerlo (i DTO di rete non lo
    portano comunque, lo inietta il server dal JWT) a meno che non emerga un vero bisogno
    di isolare dati multi-org sullo stesso device.
-6. Redesign del formato di backup per il multi-magazzino (rinviato quando abbiamo fatto la
+5. Redesign del formato di backup per il multi-magazzino (rinviato quando abbiamo fatto la
    migrazione v3→v4 — vedi sezione "Backup Format" più sotto): il backup/restore ZIP
    ignora ancora `locations`.
 
@@ -190,11 +200,25 @@ First working version of the `sync` module: a **manual** "Sincronizza ora" butto
 - **Push**: queries each DAO's `getUpdatedSince(cursor)` (`getCreatedSince` for `movements`, append-only) across all 6 synced entities (`article_categories`, `locations`, `articles`, `article_location_thresholds`, `movements`, `article_images`), maps to the DTOs mirrored 1:1 from `quickstore-server`. `movements.createdBy` falls back to the current session's `userId` if a row predates any login.
 - **Pull**: applies the response in server dependency order (categories → locations → articles → thresholds → movements → images) with the same last-write-wins discipline as the server (`dto.updatedAt <= existing.updatedAt` → skip). Pulled movements go through `MovementRepository.ingestPulledMovement()`, not a raw DAO insert — it also replays the inventory delta (debit/credit) so the local `inventory` cache stays consistent with movement history; skips if the id already exists (idempotent) and never re-validates availability (the server already accepted it from the other device).
 - Cursor (`since`) and a stable per-install `deviceId` live in `SyncLocalStore` (its own DataStore, `sync_state`).
+- Every log line in the sync path is tagged `"Sync"` via Timber (planted only in debug builds, `QuickStoreApplication.onCreate`) — `SyncRepositoryImpl`/`SyncApi`/`ImagesApi` all log push/pull payload sizes per entity, every upsert decision (insert/update/skip-stale/delete), and non-success HTTP responses with their body. Use `adb logcat -s Sync:*` when diagnosing a sync issue instead of guessing.
 
 **Known limitations of this first version** (see comments in `SyncRepositoryImpl.kt`):
 - Local entities (`article_categories`, `articles`, `locations`, `article_location_thresholds`, `article_images`) have **no `isDeleted` flag** — local deletions are hard-deletes and never propagate to the server. A remote deletion (`isDeleted=true` in a pull) *is* applied locally (row deleted). Fixing the local→remote direction needs its own migration adding soft-delete everywhere, not done here.
 - `article_images` has no `updated_at` locally; `created_at` is used as a stand-in on both sides of the sync.
-- No WebSocket client, no periodic background sync — sync only happens when the user taps the button.
+- No WebSocket client, no periodic background sync — the metadata sync only happens when the user taps the button (the photo transfer below runs automatically after it, that part is not manual).
+
+### Photo transfer (`ImageTransferWorker`)
+
+The sync payload above only carries `imagePath` (a string) and `featuresData` (small OpenCV descriptors, Base64) — never the real JPEG bytes. `ImageTransferWorker` (WorkManager + Hilt, `@HiltWorker`) handles the actual files, separately from the metadata sync because it can be heavy:
+
+- Enqueued automatically (`WorkManager.enqueueUniqueWork`, `ExistingWorkPolicy.KEEP`) at the end of every successful `syncNow()` — the worker itself no-ops immediately (`Result.success()`) if there's nothing to transfer, so it's safe to always schedule it rather than pre-checking.
+- **Upload**: `ArticleImageDao.getPendingUpload()` (`is_uploaded = 0`) → `ImagesApi.uploadImage()` (multipart POST `/images/upload/{id}`) → `markUploaded()`. New `article_images.is_uploaded` column (MIGRATION_5_6): defaults false for images captured locally, forced `true` for images arriving via pull (they're on the server by definition — no need to re-upload someone else's photo).
+- **Download**: for every local `article_images` row, checks `ImageStorageManager.imageExists(imagePath)`; if the file is missing, `ImagesApi.downloadImage()` (GET `/images/download/{id}`) and `ImageStorageManager.writeImageAtPath()` writes the raw bytes at that exact relative path (not a new random filename — `imagePath` is already a portable `{articleUuid}/{file}.jpg` string, reproduced identically on every device).
+- Runs as a foreground service (`setForeground`, `FOREGROUND_SERVICE_TYPE_DATA_SYNC`, required by API 34+) with an ongoing progress notification ("N di M"), plus a final result notification — channel `image_transfer`, created once in `QuickStoreApplication.onCreate`. Requires runtime `POST_NOTIFICATIONS` (requested in `LoginScreen` on entering `AlreadyLoggedIn`; min SDK is already 33 so there's no legacy pre-33 fallback path to maintain).
+- Network constraint is user-configurable (`SyncSettingsRepository`/`SyncLocalStore`, a `Switch` next to "Sincronizza ora"): defaults to `NetworkType.UNMETERED` (wifi-only, since transfers can be heavy), can be relaxed to `NetworkType.CONNECTED` (any network, including mobile data).
+- On partial failure, `doWork()` returns `Result.retry()` — safe to retry from scratch since both upload (`is_uploaded` flag) and download (file-existence check) are idempotent; already-done items are skipped on the next attempt, only the failed ones are retried.
+- Requires `Configuration.Provider` + `HiltWorkerFactory` wiring in `QuickStoreApplication`, and the default `WorkManagerInitializer` disabled in the manifest (`tools:node="remove"` on the `androidx.startup.InitializationProvider` entry) — the two can't coexist.
+- Not yet end-to-end tested with real photos on a device (compiles clean, including a from-scratch KSP/Hilt graph validation).
 
 ## Key Technical Notes
 
