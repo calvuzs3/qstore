@@ -11,7 +11,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Kotlin**: 2.1.0 / JVM 17
 - **Current DB version**: 7 (MIGRATION_3_4: multi-location — `locations`, `article_location_thresholds`, `movements.id` Long→UUID, `from_location_uuid`/`to_location_uuid`, `inventory` PK composta articolo+ubicazione, `MovementType.ADJUSTMENT`/`TRANSFER`; MIGRATION_4_5: `movements.created_by`; MIGRATION_5_6: `article_images.is_uploaded`; MIGRATION_6_7: `is_deleted` su `article_categories`/`articles`/`locations`/`article_location_thresholds`/`article_images` + vero `updated_at` su `article_images`)
 
-## Stato attuale — sync multi-device (HANDOFF, 2026-07-02)
+## Stato attuale — sync multi-device (HANDOFF, 2026-07-03)
 
 QuickStore sta passando da app puramente offline a un modello opzionale multi-device: un
 backend dedicato (`../quickstore-server`, Ktor + Postgres, repo separato) più due nuovi
@@ -22,51 +22,92 @@ mai fare login** — questo è un requisito guida, non un dettaglio.
 `https://quickstore.calvuz.net`): login (diretto e multi-org con select-org), messaggi di
 errore puliti (niente eccezioni tecniche a schermo), push+pull manuale con dati reali,
 pull "da zero" su device vergine (fresh install, ordine di dipendenza dell'upsert e
-vincoli FK di Room verificati funzionanti tramite log Timber). Bug trovati e corretti in
-questo giro: la schermata di login non si aggiornava subito dopo il login riuscito; Home
-non si aggiornava mai tornando dalla sync (fetch one-shot senza refresh automatico); un
-`Result` scartato in `ingestMovement` poteva far sparire silenziosamente un fallimento di
-inventario (ora loggato e riportato in `SyncSummary.failedMovements`).
+vincoli FK di Room verificati funzionanti tramite log Timber), `ImageTransferWorker` con
+foto vere (upload confermato). Bug trovati e corretti lungo il percorso: la schermata di
+login non si aggiornava subito dopo il login riuscito; Home non si aggiornava mai tornando
+dalla sync (fetch one-shot senza refresh automatico); un `Result` scartato in
+`ingestMovement` poteva far sparire silenziosamente un fallimento di inventario (ora
+loggato e riportato in `SyncSummary.failedMovements`); il `<service>` interno di
+WorkManager non dichiarava `foregroundServiceType`, causando un crash su
+`setForeground()` (fix nel manifest, `tools:node="merge"` su `SystemForegroundService`).
 
-**Verificato anche `ImageTransferWorker`** (WorkManager + Hilt), accodato automaticamente
-a fine `syncNow()` — carica su `/images/upload/{id}` i JPEG scattati su questo device e
-non ancora sul server (`article_images.is_uploaded=false`), scarica da
-`/images/download/{id}` quelli il cui metadato è arrivato via pull ma il cui file non
-esiste ancora in locale. Gira come foreground service (notifica di avanzamento, canale
-`image_transfer`) — richiede il permesso runtime POST_NOTIFICATIONS (richiesto in
-`LoginScreen` quando si entra in `AlreadyLoggedIn`, min SDK è già 33 quindi sempre
-necessario). Vincolo di rete configurabile (switch in Impostazioni > Account: solo wifi
-di default, o anche dati mobili) — vedi `SyncSettingsRepository`/`SyncLocalStore`. Bug
-trovato e corretto: il `<service>` interno di WorkManager che ospita il foreground di
-ogni worker non dichiara un `foregroundServiceType` di default — va sovrascritto nel
-manifest dell'app (`tools:node="merge"` su `SystemForegroundService`), altrimenti
-`setForeground()` crasha con `IllegalArgumentException` anche a codice corretto. Testato
-su device reale con foto vere: upload confermato funzionante.
+**Propagazione delle cancellazioni locali → server** (MIGRATION_6_7): `is_deleted` su
+`article_categories`/`articles`/`locations`/`article_location_thresholds`/`article_images`.
+Cancellare localmente è ora un soft-delete invece di un `DELETE` fisico, propagato al
+server (che già sapeva gestirlo in arrivo, nessuna modifica server necessaria).
+`movements` resta escluso di proposito — log append-only. `DeleteArticleUseCase` non
+cancella più inventario/movimenti (restano come storico anche per un articolo cancellato,
+cambio di comportamento intenzionale); le immagini dell'articolo vengono invece
+soft-eliminate esplicitamente in codice, incluso il file JPEG fisico rimosso subito dal
+device. **Testata dall'utente, esito riportato come "funziona in qualche modo, non
+sembra perfetto"** — non ancora chiarito cosa esattamente non torni, da riprendere con i
+log (tag `Sync`) alla prossima occasione utile.
 
-**Aggiunta la propagazione delle cancellazioni locali → server** (MIGRATION_6_7):
-`article_categories`/`articles`/`locations`/`article_location_thresholds`/`article_images`
-hanno ora `is_deleted` — cancellare localmente diventa un soft-delete (`is_deleted=1`,
-`updated_at=now`) invece di un `DELETE` fisico, raccolto dalla stessa query di push già
-esistente e propagato al server (che già sapeva gestirlo in arrivo, nessuna modifica
-server necessaria). `movements` resta escluso di proposito — log append-only. Cambiato
-anche il comportamento di `DeleteArticleUseCase`: **non cancella più** inventario/movimenti
-(il CASCADE di Room non scatta su un UPDATE), le immagini dell'articolo vengono invece
-soft-eliminate esplicitamente in codice (incluso il file JPEG fisico, cancellato subito).
-Non ancora testato su device reale (solo build da zero pulita).
+**Bug di clock skew trovato e corretto durante il test delle cancellazioni**: il cursore
+`since` era condiviso tra push e pull ma confrontava clock diversi (vedi sezione "Sync"
+più sotto per il dettaglio) — un device con l'orologio anche solo leggermente indietro
+rispetto al server smetteva di riuscire a pushare qualunque modifica, cancellazioni
+comprese. Fix client-only: due cursori separati (`sincePush`/`sincePull`) in
+`SyncLocalStore`. **Non è la causa del "non sembra perfetto" sopra** — quel fix è stato
+verificato a parte e funziona; il residuo di imperfezione è emerso *durante* lo stesso
+giro di test ma non è stato ancora isolato se sia lo stesso problema o un altro.
+
+**Gap noto scoperto ma non ancora chiuso**: cancellare un articolo non fa cascata sulle
+sue eventuali righe in `article_location_thresholds` (restano `is_deleted=0`, orfane —
+puntano via FK a un articolo ora nascosto). Non causa crash (nessuna UI le espone ancora,
+vedi sotto), ma è un'inconsistenza dati da sistemare quando si implementa il restore o
+quando arriva una UI per le soglie.
+
+**Restore di articoli/immagini cancellati: non ancora implementato** (né use case né UI).
+Analisi già fatta in questa sessione, utile per ripartire:
+- Tabelle coinvolte: `articles` (banale, `is_deleted=0` + bump `updated_at`), `article_images`
+  della stessa cascata di cancellazione (stesso trattamento), *non* `inventory`/`movements`
+  (mai toccati dalla delete, nulla da ripristinare lì), `article_location_thresholds` da
+  includere nel restore quando si chiude il gap sopra.
+- Limite intrinseco: un solo bit `is_deleted` non distingue "cancellato insieme
+  all'articolo" da "cancellato per conto suo" — ripristinare un articolo ripristinerebbe
+  *tutte* le sue immagini attualmente segnate cancellate, incluse eventuali cancellazioni
+  indipendenti.
+- Immagini: il JPEG fisico è già stato rimosso dal device alla cancellazione. Se era
+  già stato caricato (`is_uploaded=true`) il file esiste ancora sul server (nessun
+  endpoint di cancellazione fisica lato server, solo upload/download, vedi
+  `quickstore-server/ImageRoutes.kt`) — si può riscaricare, `ImageTransferWorker` lo fa
+  già in automatico non appena il metadato torna `is_deleted=false` col file mancante su
+  disco. Se non era mai stata caricata, il JPEG è perso per sempre, restano solo i
+  descrittori OpenCV.
+- Nel frattempo, ripristino manuale possibile via SQL diretto sul server Postgres
+  (`updated_at` è `BIGINT` epoch-millis, non un `TIMESTAMP` — serve
+  `(extract(epoch from now()) * 1000)::bigint`, non `NOW()` da solo):
+  ```sql
+  UPDATE articles SET is_deleted = false,
+    updated_at = (extract(epoch from now()) * 1000)::bigint
+  WHERE id = '<uuid>';
+  UPDATE article_images SET is_deleted = false,
+    updated_at = (extract(epoch from now()) * 1000)::bigint
+  WHERE article_id = '<uuid>';
+  ```
+  Il prossimo pull di qualunque device lo riprende come un normale aggiornamento.
 
 **Non ancora fatto** (elencato per priorità presunta, nessun ordine impegnativo):
-1. Canale WebSocket (`ws /sync/ws`) per il nudge near-realtime + `WorkManager` per una
+1. Isolare cosa intende l'utente con "non sembra perfetto" sulla propagazione delle
+   cancellazioni — serve un altro giro di test con i log Timber (tag `Sync`) attivi.
+2. Use case + UI per il restore di articoli/immagini cancellati (vedi analisi sopra) —
+   include la chiusura del gap sulle soglie.
+3. Canale WebSocket (`ws /sync/ws`) per il nudge near-realtime + `WorkManager` per una
    pull periodica di sicurezza (dei *metadati*, non delle foto — quello esiste già) — il
    server li supporta già, lato Android sono deliberatamente rinviati (vedi sezione
    "Sync" più sotto) per verificare push/pull manuale in isolamento prima di aggiungere
    l'automazione in background.
-2. UI di gestione membership (invita/cambia ruolo/rimuovi) e lettura audit log: gli
+4. UI di gestione membership (invita/cambia ruolo/rimuovi) e lettura audit log: gli
    endpoint server esistono (`quickstore-server/CLAUDE.md` sezione 9), nessuna schermata
    Android li usa ancora.
-3. `org_id` sulle entity sincronizzate: deciso di **non** aggiungerlo (i DTO di rete non lo
+5. `org_id` sulle entity sincronizzate: deciso di **non** aggiungerlo (i DTO di rete non lo
    portano comunque, lo inietta il server dal JWT) a meno che non emerga un vero bisogno
    di isolare dati multi-org sullo stesso device.
-4. Redesign del formato di backup per il multi-magazzino (rinviato quando abbiamo fatto la
+6. Il caso più raro in cui l'orologio di un singolo device va indietro su se stesso
+   (residuo del fix clock-skew sopra) — richiederebbe un flag dirty locale + un contatore
+   monotono lato server, quindi anche una migrazione di `quickstore-server`.
+7. Redesign del formato di backup per il multi-magazzino (rinviato quando abbiamo fatto la
    migrazione v3→v4 — vedi sezione "Backup Format" più sotto): il backup/restore ZIP
    ignora ancora `locations`.
 
