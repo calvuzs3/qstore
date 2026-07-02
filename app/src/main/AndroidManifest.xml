@@ -98,5 +98,15 @@
                 tools:node="remove" />
         </provider>
 
+        <!-- Il servizio interno di WorkManager che ospita i worker in foreground (usato da
+             ImageTransferWorker) di default non dichiara alcun foregroundServiceType nel
+             suo manifest — su API 34+ questo fa fallire setForeground() con
+             IllegalArgumentException perché il tipo richiesto dal worker (dataSync) non è
+             un sottoinsieme di quello dichiarato (nessuno). Va sovrascritto qui. -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
+
     </application>
 </manifest>
