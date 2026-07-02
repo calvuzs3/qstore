@@ -26,8 +26,16 @@ interface MovementRepository {
         fromLocationUuid: String?,
         toLocationUuid: String?,
         quantity: Double,
-        notes: String
+        notes: String,
+        createdBy: String? = null
     ): Result<Unit>
+
+    /**
+     * Inserisce un movimento arrivato da /sync/pull (creato da un altro device) e applica
+     * lo stesso delta di inventario, senza rivalidare la disponibilità — il server l'ha
+     * già accettato quando l'altro device l'ha pushato. Idempotente sull'id.
+     */
+    suspend fun ingestPulledMovement(movement: Movement): Result<Unit>
 
     /**
      * Recupera tutti i movimenti

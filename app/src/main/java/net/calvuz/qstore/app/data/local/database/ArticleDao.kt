@@ -49,4 +49,8 @@ interface ArticleDao {
     @Query("SELECT EXISTS(SELECT 1 FROM articles WHERE uuid = :uuid)")
     suspend fun exists(uuid: String): Boolean
 
+    /** Righe modificate dopo il cursore di sync — usata per costruire il payload di push. */
+    @Query("SELECT * FROM articles WHERE updated_at > :since")
+    suspend fun getUpdatedSince(since: Long): List<ArticleEntity>
+
 }

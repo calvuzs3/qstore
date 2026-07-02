@@ -30,4 +30,8 @@ interface LocationDao {
 
     @Query("SELECT * FROM locations ORDER BY name ASC")
     fun observeAll(): Flow<List<LocationEntity>>
+
+    /** Righe modificate dopo il cursore di sync — usata per costruire il payload di push. */
+    @Query("SELECT * FROM locations WHERE updated_at > :since")
+    suspend fun getUpdatedSince(since: Long): List<LocationEntity>
 }

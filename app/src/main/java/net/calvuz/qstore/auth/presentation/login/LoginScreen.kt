@@ -65,7 +65,9 @@ fun LoginScreen(
             is LoginUiState.OrgSelection -> state.error?.let {
                 snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
             }
-            else -> Unit
+            is LoginUiState.AlreadyLoggedIn -> state.syncMessage?.let {
+                snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
+            }
         }
     }
 
@@ -98,7 +100,8 @@ fun LoginScreen(
             is LoginUiState.AlreadyLoggedIn -> AlreadyLoggedInContent(
                 state = state,
                 paddingValues = paddingValues,
-                onLogout = viewModel::logout
+                onLogout = viewModel::logout,
+                onSyncNow = viewModel::syncNow
             )
             LoginUiState.JustLoggedIn -> Unit // gestito da onLoggedIn sopra
         }
@@ -163,7 +166,8 @@ private fun LoginFormContent(
 private fun AlreadyLoggedInContent(
     state: LoginUiState.AlreadyLoggedIn,
     paddingValues: PaddingValues,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onSyncNow: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -181,8 +185,20 @@ private fun AlreadyLoggedInContent(
         }
 
         Button(
+            onClick = onSyncNow,
+            enabled = !state.isSyncing && !state.isLoggingOut,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (state.isSyncing) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp))
+            } else {
+                Text("Sincronizza ora")
+            }
+        }
+
+        Button(
             onClick = onLogout,
-            enabled = !state.isLoggingOut,
+            enabled = !state.isLoggingOut && !state.isSyncing,
             modifier = Modifier.fillMaxWidth()
         ) {
             if (state.isLoggingOut) {

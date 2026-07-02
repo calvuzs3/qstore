@@ -63,4 +63,12 @@ interface ArticleImageDao {
      */
     @Query("SELECT COUNT(*) > 0 FROM article_images WHERE article_uuid = :articleUuid")
     suspend fun hasImages(articleUuid: String): Boolean
+
+    /**
+     * Righe modificate dopo il cursore di sync. Basata su created_at (questa tabella non
+     * ha updated_at/is_deleted lato client, a differenza dello schema server — le
+     * immagini locali sono hard-delete, non propagano una cancellazione al server).
+     */
+    @Query("SELECT * FROM article_images WHERE created_at > :since")
+    suspend fun getUpdatedSince(since: Long): List<ArticleImageEntity>
 }

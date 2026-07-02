@@ -47,4 +47,8 @@ interface ArticleCategoryDao {
 
     @Query("SELECT DISTINCT name FROM article_categories ORDER BY name ASC")
     suspend fun getAllCategories(): List<String>
+
+    /** Righe modificate dopo il cursore di sync — usata per costruire il payload di push. */
+    @Query("SELECT * FROM article_categories WHERE updated_at > :since")
+    suspend fun getUpdatedSince(since: Long): List<ArticleCategoryEntity>
 }
