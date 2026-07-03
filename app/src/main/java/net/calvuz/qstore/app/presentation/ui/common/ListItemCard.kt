@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import net.calvuz.qstore.app.presentation.ui.theme.Spacing
+import net.calvuz.qstore.app.presentation.ui.theme.registrationTicks
 
 /**
  * Card di lista condivisa (icona leading in un badge colorato, titolo, sottotitolo
@@ -44,18 +45,20 @@ fun ListItemCard(
 ) {
     Card(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .registrationTicks(color = MaterialTheme.colorScheme.primary)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(Spacing.lg),
+                .padding(Spacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
                 shape = MaterialTheme.shapes.small,
                 color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(48.dp)
+                modifier = Modifier.size(34.dp)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
@@ -66,7 +69,7 @@ fun ListItemCard(
                 }
             }
 
-            Spacer(modifier = Modifier.width(Spacing.lg))
+            Spacer(modifier = Modifier.width(Spacing.sm))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(

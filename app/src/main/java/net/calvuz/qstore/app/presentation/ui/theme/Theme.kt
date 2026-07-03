@@ -80,11 +80,13 @@ private val DarkColorScheme = darkColorScheme(
 @Composable
 fun QuickStoreTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
+    // "Opzione 3 — Arancio e Technical Design" ha una palette deliberata (vedi Color.kt):
+    // il Material You dinamico la sovrascriverebbe con i colori dello sfondo del telefono.
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
-        // Dynamic color su Android 12+
+        // Dynamic color su Android 12+ (disattivato di default, vedi sopra)
         dynamicColor -> {
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context)
