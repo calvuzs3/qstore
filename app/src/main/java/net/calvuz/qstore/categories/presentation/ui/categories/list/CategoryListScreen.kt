@@ -15,6 +15,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.collectLatest
 import net.calvuz.qstore.categories.domain.model.ArticleCategory
+import net.calvuz.qstore.app.presentation.ui.common.EmptyState
+import net.calvuz.qstore.app.presentation.ui.common.ErrorState
+import net.calvuz.qstore.app.presentation.ui.common.ListItemCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -105,9 +108,10 @@ fun CategoryListScreen(
                 }
 
                 is CategoryListUiState.Error -> {
-                    ErrorMessage(
+                    ErrorState(
                         message = (uiState as CategoryListUiState.Error).message,
-                        onRetry = { viewModel.refresh() }
+                        onRetry = { viewModel.refresh() },
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
 
@@ -119,6 +123,7 @@ fun CategoryListScreen(
                             } else {
                                 "Nessuna categoria"
                             },
+                            icon = Icons.Default.Category,
                             onAction = if (searchQuery.isNotBlank()) {
                                 { viewModel.onSearchQueryChange("") }
                             } else {
@@ -128,7 +133,8 @@ fun CategoryListScreen(
                                 "Cancella ricerca"
                             } else {
                                 "Crea prima categoria"
-                            }
+                            },
+                            modifier = Modifier.fillMaxSize()
                         )
                     } else {
                         LazyColumn(
@@ -137,9 +143,16 @@ fun CategoryListScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items(categories, key = { it.category.uuid }) { categoryWithCount ->
-                                CategoryCard(
-                                    category = categoryWithCount.category,
-                                    articleCount = categoryCounts[categoryWithCount.category.uuid] ?: 0,
+                                val articleCount = categoryCounts[categoryWithCount.category.uuid] ?: 0
+                                ListItemCard(
+                                    icon = Icons.Default.Category,
+                                    title = categoryWithCount.category.name,
+                                    subtitle = categoryWithCount.category.description.takeIf { it.isNotBlank() },
+                                    captionLine = when (articleCount) {
+                                        0 -> "Nessun articolo"
+                                        1 -> "1 articolo"
+                                        else -> "$articleCount articoli"
+                                    },
                                     onClick = { onCategoryClick(categoryWithCount.category.uuid) },
                                     onDeleteClick = { categoryToDelete = categoryWithCount.category }
                                 )
@@ -208,157 +221,3 @@ fun CategoryListScreen(
     }
 }
 
-@Composable
-private fun CategoryCard(
-    category: ArticleCategory,
-    articleCount: Int,
-    onClick: () -> Unit,
-    onDeleteClick: () -> Unit
-) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Icon
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(48.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Default.Category,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            // Content
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = category.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                if (category.description.isNotBlank()) {
-                    Text(
-                        text = category.description,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                Text(
-                    text = when (articleCount) {
-                        0 -> "Nessun articolo"
-                        1 -> "1 articolo"
-                        else -> "$articleCount articoli"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            // Delete button
-            IconButton(onClick = onDeleteClick) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Elimina",
-                    tint = MaterialTheme.colorScheme.error
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyState(
-    message: String,
-    onAction: () -> Unit,
-    actionLabel: String
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            Icons.Default.Category,
-            contentDescription = null,
-            modifier = Modifier.size(72.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            message,
-            style = MaterialTheme.typography.titleLarge
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(onClick = onAction) {
-            Text(actionLabel)
-        }
-    }
-}
-
-@Composable
-private fun ErrorMessage(
-    message: String,
-    onRetry: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            Icons.Default.Error,
-            contentDescription = null,
-            modifier = Modifier.size(72.dp),
-            tint = MaterialTheme.colorScheme.error
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            "Errore",
-            style = MaterialTheme.typography.titleLarge
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(onClick = onRetry) {
-            Icon(Icons.Default.Refresh, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Riprova")
-        }
-    }
-}
