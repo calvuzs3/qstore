@@ -99,6 +99,9 @@ fun NavGraphBuilder.settingsNavGraph(
                 onNavigateToCategories = {
                     navController.navigateToCategories()
                 },
+                onNavigateToLocations = {
+                    // TODO: Implementare navigazione a Location settings (vedi nota su questo file)
+                },
                 onNavigateToData = {
                     // TODO: Implementare navigazione a Data settings
                 },

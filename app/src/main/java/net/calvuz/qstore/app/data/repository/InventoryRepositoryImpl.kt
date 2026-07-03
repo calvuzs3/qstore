@@ -1,5 +1,7 @@
 package net.calvuz.qstore.app.data.repository
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import net.calvuz.qstore.app.data.local.database.InventoryDao
 import net.calvuz.qstore.app.domain.model.Inventory
 import net.calvuz.qstore.app.domain.repository.InventoryRepository
@@ -17,5 +19,15 @@ class InventoryRepositoryImpl @Inject constructor(
             currentQuantity = quantity,
             lastMovementAt = total.lastMovementAt ?: 0L
         )
+    }
+
+    override fun observeQuantitiesByLocation(locationUuid: String): Flow<Map<String, Double>> {
+        return inventoryDao.observeByLocation(locationUuid).map { entities ->
+            entities.associate { it.articleUuid to it.currentQuantity }
+        }
+    }
+
+    override suspend fun getQuantityAt(articleUuid: String, locationUuid: String): Double {
+        return inventoryDao.getQuantity(articleUuid, locationUuid) ?: 0.0
     }
 }

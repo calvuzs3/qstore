@@ -7,18 +7,30 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.calvuz.qstore.app.domain.model.Inventory
 import net.calvuz.qstore.app.domain.model.Article
+import net.calvuz.qstore.app.domain.model.Location
 import net.calvuz.qstore.app.domain.model.enum.MovementType
 import net.calvuz.qstore.app.domain.usecase.article.GetArticleUseCase
+import net.calvuz.qstore.app.domain.usecase.inventory.GetLocationQuantityUseCase
+import net.calvuz.qstore.app.domain.usecase.location.GetActiveLocationUseCase
+import net.calvuz.qstore.app.domain.usecase.location.GetLocationsUseCase
 import net.calvuz.qstore.app.domain.usecase.movement.AddMovementUseCase
 import javax.inject.Inject
 
 data class AddMovementState(
     val article: Article? = null,
     val inventory: Inventory? = null,
+
+    // Magazzini
+    val locations: List<Location> = emptyList(),
+    val fromLocationUuid: String? = null,
+    val toLocationUuid: String? = null,
+    val fromQuantity: Double = 0.0,
+    val toQuantity: Double = 0.0,
 
     // Form fields
     val type: MovementType = MovementType.IN,
@@ -27,6 +39,7 @@ data class AddMovementState(
 
     // Validation errors
     val quantityError: String? = null,
+    val locationError: String? = null,
 
     // UI state
     val isLoading: Boolean = true,
@@ -44,6 +57,9 @@ sealed interface AddMovementEvent {
 class AddMovementViewModel @Inject constructor(
     private val getArticleUseCase: GetArticleUseCase,
     private val addMovementUseCase: AddMovementUseCase,
+    private val getLocationsUseCase: GetLocationsUseCase,
+    private val getActiveLocationUseCase: GetActiveLocationUseCase,
+    private val getLocationQuantityUseCase: GetLocationQuantityUseCase,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -64,8 +80,9 @@ class AddMovementViewModel @Inject constructor(
                 .onSuccess { article ->
                     if (article != null) {
                         _state.update { it.copy(article = article) }
-                        // Load inventory
+                        // Load inventory (aggregato) e magazzini
                         loadInventory(articleId)
+                        loadLocations(articleId)
                     } else {
                         _state.update {
                             it.copy(
@@ -103,8 +120,78 @@ class AddMovementViewModel @Inject constructor(
         }
     }
 
+    private fun loadLocations(articleId: String) {
+        viewModelScope.launch {
+            getLocationsUseCase.getAll()
+                .onSuccess { locations ->
+                    val activeLocationUuid = getActiveLocationUseCase().first()?.uuid
+                    val defaultUuid = activeLocationUuid
+                        ?.takeIf { uuid -> locations.any { it.uuid == uuid } }
+                        ?: locations.firstOrNull()?.uuid
+
+                    _state.update {
+                        it.copy(
+                            locations = locations,
+                            fromLocationUuid = defaultUuid,
+                            toLocationUuid = defaultUuid
+                        )
+                    }
+                    refreshQuantities(articleId)
+                }
+        }
+    }
+
+    private fun refreshQuantities(articleId: String) {
+        viewModelScope.launch {
+            val currentState = _state.value
+            val fromQuantity = currentState.fromLocationUuid
+                ?.let { getLocationQuantityUseCase(articleId, it) } ?: 0.0
+            val toQuantity = currentState.toLocationUuid
+                ?.let { getLocationQuantityUseCase(articleId, it) } ?: 0.0
+
+            _state.update { it.copy(fromQuantity = fromQuantity, toQuantity = toQuantity) }
+        }
+    }
+
     fun onTypeChange(type: MovementType) {
-        _state.update { it.copy(type = type) }
+        _state.update { currentState ->
+            var newState = currentState.copy(type = type, quantityError = null, locationError = null)
+
+            // Trasferimento richiede due magazzini diversi: se coincidono, sceglie
+            // per "A" il primo magazzino diverso da "Da" (se esiste).
+            if (type == MovementType.TRANSFER && newState.fromLocationUuid == newState.toLocationUuid) {
+                val alternative = newState.locations
+                    .firstOrNull { it.uuid != newState.fromLocationUuid }
+                    ?.uuid
+                if (alternative != null) {
+                    newState = newState.copy(toLocationUuid = alternative)
+                }
+            }
+
+            newState
+        }
+        refreshQuantities(articleId)
+    }
+
+    fun onFromLocationChange(locationUuid: String) {
+        _state.update { currentState ->
+            var newState = currentState.copy(fromLocationUuid = locationUuid, locationError = null)
+
+            if (newState.type == MovementType.TRANSFER && locationUuid == newState.toLocationUuid) {
+                val alternative = newState.locations
+                    .firstOrNull { it.uuid != locationUuid }
+                    ?.uuid
+                newState = newState.copy(toLocationUuid = alternative)
+            }
+
+            newState
+        }
+        refreshQuantities(articleId)
+    }
+
+    fun onToLocationChange(locationUuid: String) {
+        _state.update { it.copy(toLocationUuid = locationUuid, locationError = null) }
+        refreshQuantities(articleId)
     }
 
     fun onQuantityChange(value: String) {
@@ -147,14 +234,43 @@ class AddMovementViewModel @Inject constructor(
                 _state.update { it.copy(quantityError = "La quantità deve essere maggiore di 0") }
                 isValid = false
             }
-            currentState.type == MovementType.OUT -> {
-                val available = currentState.inventory?.currentQuantity ?: 0.0
-                if (quantity > available) {
-                    _state.update {
-                        it.copy(quantityError = "Quantità insufficiente (disponibile: $available)")
+        }
+
+        // Validate magazzini (solo se la quantità è già valida, per non sovrascrivere l'errore sopra)
+        if (isValid && quantity != null) {
+            when (currentState.type) {
+                MovementType.IN -> {
+                    if (currentState.toLocationUuid == null) {
+                        _state.update { it.copy(locationError = "Seleziona il magazzino di destinazione") }
+                        isValid = false
                     }
-                    isValid = false
                 }
+                MovementType.OUT -> {
+                    if (currentState.fromLocationUuid == null) {
+                        _state.update { it.copy(locationError = "Seleziona il magazzino di partenza") }
+                        isValid = false
+                    } else if (quantity > currentState.fromQuantity) {
+                        _state.update {
+                            it.copy(quantityError = "Quantità insufficiente (disponibile: ${currentState.fromQuantity})")
+                        }
+                        isValid = false
+                    }
+                }
+                MovementType.TRANSFER -> {
+                    if (currentState.fromLocationUuid == null || currentState.toLocationUuid == null) {
+                        _state.update { it.copy(locationError = "Seleziona entrambi i magazzini") }
+                        isValid = false
+                    } else if (currentState.fromLocationUuid == currentState.toLocationUuid) {
+                        _state.update { it.copy(locationError = "I magazzini di partenza e arrivo devono essere diversi") }
+                        isValid = false
+                    } else if (quantity > currentState.fromQuantity) {
+                        _state.update {
+                            it.copy(quantityError = "Quantità insufficiente (disponibile: ${currentState.fromQuantity})")
+                        }
+                        isValid = false
+                    }
+                }
+                MovementType.ADJUSTMENT -> Unit // non selezionabile da questa schermata
             }
         }
 
@@ -168,9 +284,18 @@ class AddMovementViewModel @Inject constructor(
             val currentState = _state.value
             val article = currentState.article ?: return@launch
 
+            val (fromLocationUuid, toLocationUuid) = when (currentState.type) {
+                MovementType.IN -> null to currentState.toLocationUuid
+                MovementType.OUT -> currentState.fromLocationUuid to null
+                MovementType.TRANSFER -> currentState.fromLocationUuid to currentState.toLocationUuid
+                MovementType.ADJUSTMENT -> currentState.fromLocationUuid to currentState.toLocationUuid
+            }
+
             addMovementUseCase(
                 articleUuid = article.uuid,
                 type = currentState.type,
+                fromLocationUuid = fromLocationUuid,
+                toLocationUuid = toLocationUuid,
                 quantity = currentState.quantity.toDouble(),
                 notes = currentState.notes.trim()
             ).onSuccess {

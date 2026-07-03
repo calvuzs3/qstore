@@ -13,6 +13,8 @@ import net.calvuz.qstore.app.presentation.ui.articles.list.ArticleListScreen
 import net.calvuz.qstore.app.presentation.ui.camera.CameraScreen
 import net.calvuz.qstore.app.presentation.ui.camera.SearchResultsScreen
 import net.calvuz.qstore.app.presentation.ui.home.HomeScreen
+import net.calvuz.qstore.app.presentation.ui.locations.edit.LocationEditScreen
+import net.calvuz.qstore.app.presentation.ui.locations.list.LocationListScreen
 import net.calvuz.qstore.app.presentation.ui.movements.add.AddMovementScreen
 import net.calvuz.qstore.app.presentation.ui.movements.list.MovementListScreen
 import net.calvuz.qstore.auth.presentation.login.LoginScreen
@@ -57,6 +59,13 @@ sealed class Screen(val route: String) {
     data object CategoryAdd : Screen("categories/add")
     data object CategoryEdit : Screen("categories/edit/{categoryUuid}") {
         fun createRoute(categoryUuid: String) = "categories/edit/$categoryUuid"
+    }
+
+    // Magazzini
+    data object LocationList : Screen("locations")
+    data object LocationAdd : Screen("locations/add")
+    data object LocationEdit : Screen("locations/edit/{locationUuid}") {
+        fun createRoute(locationUuid: String) = "locations/edit/$locationUuid"
     }
 
     // Movimenti
@@ -277,6 +286,9 @@ fun AppNavigation(
                 onNavigateToCategories = {
                     navController.navigate(Screen.CategoryList.route)
                 },
+                onNavigateToLocations = {
+                    navController.navigate(Screen.LocationList.route)
+                },
                 onNavigateToServer = {
                     navController.navigate(Screen.ServerSettings.route)
                 },
@@ -334,6 +346,46 @@ fun AppNavigation(
             )
         ) {
             CategoryEditScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // ========== LOCATION LIST SCREEN ==========
+        composable(Screen.LocationList.route) {
+            LocationListScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                },
+                onLocationClick = { locationUuid ->
+                    navController.navigate(Screen.LocationEdit.createRoute(locationUuid))
+                },
+                onAddLocationClick = {
+                    navController.navigate(Screen.LocationAdd.route)
+                }
+            )
+        }
+
+        // ========== LOCATION ADD SCREEN ==========
+        composable(Screen.LocationAdd.route) {
+            LocationEditScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // ========== LOCATION EDIT SCREEN ==========
+        composable(
+            route = Screen.LocationEdit.route,
+            arguments = listOf(
+                navArgument("locationUuid") {
+                    type = NavType.StringType
+                }
+            )
+        ) {
+            LocationEditScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 }
