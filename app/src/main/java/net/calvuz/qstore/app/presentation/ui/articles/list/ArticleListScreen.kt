@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import net.calvuz.qstore.app.domain.model.Location
 import net.calvuz.qstore.categories.domain.model.ArticleCategory
 import net.calvuz.qstore.app.presentation.ui.articles.components.ArticleCard
 import net.calvuz.qstore.app.presentation.ui.articles.model.ArticleSortOrder
@@ -45,11 +46,14 @@ fun ArticleListScreen(
     val sortOrder by viewModel.sortOrder.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val displaySettings by viewModel.displaySettings.collectAsStateWithLifecycle()
+    val activeLocation by viewModel.activeLocation.collectAsStateWithLifecycle()
+    val locations by viewModel.locations.collectAsStateWithLifecycle()
 
     // Menu states
     var showCategoryMenu by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
     var showOptionsMenu by remember { mutableStateOf(false) }
+    var showLocationMenu by remember { mutableStateOf(false) }
 
     // Get selected category name for display
     val selectedCategoryName = remember(selectedCategoryId, categories) {
@@ -73,6 +77,21 @@ fun ArticleListScreen(
                     // Refresh button
                     IconButton(onClick = { viewModel.refresh() }) {
                         Icon(Icons.Default.Refresh, "Aggiorna")
+                    }
+
+                    // Location filter button
+                    Box {
+                        IconButton(onClick = { showLocationMenu = true }) {
+                            Icon(Icons.Default.Warehouse, "Filtra per magazzino")
+                        }
+
+                        LocationFilterMenu(
+                            expanded = showLocationMenu,
+                            locations = locations,
+                            selectedLocationUuid = activeLocation?.uuid,
+                            onLocationSelected = viewModel::selectLocation,
+                            onDismiss = { showLocationMenu = false }
+                        )
                     }
 
                     // Category filter button
@@ -155,10 +174,11 @@ fun ArticleListScreen(
             )
 
             // Active filters indicator
-            if (selectedCategoryId != null || searchQuery.isNotBlank()) {
+            if (selectedCategoryId != null || searchQuery.isNotBlank() || activeLocation != null) {
                 ActiveFiltersBar(
                     categoryName = if (selectedCategoryId != null) selectedCategoryName else null,
                     hasSearchQuery = searchQuery.isNotBlank(),
+                    locationName = activeLocation?.name,
                     onClearFilters = { viewModel.clearFilters() },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -194,22 +214,23 @@ fun ArticleListScreen(
                 }
 
                 is ArticleListUiState.Success -> {
+                    val hasFilters = searchQuery.isNotBlank() || selectedCategoryId != null
                     if (articles.isEmpty()) {
                         EmptyState(
-                            message = if (searchQuery.isNotBlank() || selectedCategoryId != null) {
-                                "Nessun articolo trovato"
-                            } else {
-                                "Nessun articolo in magazzino"
+                            message = when {
+                                activeLocation != null -> "Nessun articolo in \"${activeLocation!!.name}\""
+                                hasFilters -> "Nessun articolo trovato"
+                                else -> "Nessun articolo in magazzino"
                             },
-                            onAction = if (searchQuery.isNotBlank() || selectedCategoryId != null) {
-                                { viewModel.clearFilters() }
-                            } else {
-                                onAddArticleClick
+                            onAction = when {
+                                activeLocation != null -> { { viewModel.selectLocation(null) } }
+                                hasFilters -> { { viewModel.clearFilters() } }
+                                else -> onAddArticleClick
                             },
-                            actionLabel = if (searchQuery.isNotBlank() || selectedCategoryId != null) {
-                                "Cancella filtri"
-                            } else {
-                                "Aggiungi primo articolo"
+                            actionLabel = when {
+                                activeLocation != null -> "Mostra tutti i magazzini"
+                                hasFilters -> "Cancella filtri"
+                                else -> "Aggiungi primo articolo"
                             }
                         )
                     } else {
@@ -218,7 +239,8 @@ fun ArticleListScreen(
                             contentPadding = PaddingValues(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            items(articles, key = { it.uuid }) { article ->
+                            items(articles, key = { it.article.uuid }) { articleWithStock ->
+                                val article = articleWithStock.article
                                 ArticleCard(
                                     article = article,
                                     categoryName = viewModel.getCategoryName(article.categoryId),
@@ -227,6 +249,7 @@ fun ArticleListScreen(
                                     cardStyle = displaySettings.articleCardStyle,
                                     showImage = displaySettings.showArticleImages,
                                     showStockIndicator = displaySettings.showStockIndicators,
+                                    quantityLabel = articleWithStock.quantity?.let { "$it ${article.unitOfMeasure}" },
                                 )
                             }
                         }
@@ -267,6 +290,7 @@ private fun SearchBar(
 private fun ActiveFiltersBar(
     categoryName: String?,
     hasSearchQuery: Boolean,
+    locationName: String?,
     onClearFilters: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -286,6 +310,7 @@ private fun ActiveFiltersBar(
             text = buildString {
                 append("Filtri: ")
                 val filters = mutableListOf<String>()
+                if (locationName != null) filters.add(locationName)
                 if (categoryName != null) filters.add(categoryName)
                 if (hasSearchQuery) filters.add("ricerca")
                 append(filters.joinToString(", "))
@@ -295,11 +320,13 @@ private fun ActiveFiltersBar(
             modifier = Modifier.weight(1f)
         )
 
-        TextButton(
-            onClick = onClearFilters,
-            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
-        ) {
-            Text("Cancella", style = MaterialTheme.typography.bodySmall)
+        if (categoryName != null || hasSearchQuery) {
+            TextButton(
+                onClick = onClearFilters,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text("Cancella", style = MaterialTheme.typography.bodySmall)
+            }
         }
     }
 }
@@ -459,6 +486,49 @@ private fun CategoryFilterMenu(
                     onDismiss()
                 },
                 leadingIcon = if (selectedCategoryId == category.uuid) {
+                    { Icon(Icons.Default.Check, contentDescription = null) }
+                } else null
+            )
+        }
+    }
+}
+
+@Composable
+private fun LocationFilterMenu(
+    expanded: Boolean,
+    locations: List<Location>,
+    selectedLocationUuid: String?,
+    onLocationSelected: (String?) -> Unit,
+    onDismiss: () -> Unit
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismiss
+    ) {
+        // "Tutti i magazzini" option (null = no filter)
+        DropdownMenuItem(
+            text = { Text("Tutti i magazzini") },
+            onClick = {
+                onLocationSelected(null)
+                onDismiss()
+            },
+            leadingIcon = if (selectedLocationUuid == null) {
+                { Icon(Icons.Default.Check, contentDescription = null) }
+            } else null
+        )
+
+        if (locations.isNotEmpty()) {
+            HorizontalDivider()
+        }
+
+        locations.forEach { location ->
+            DropdownMenuItem(
+                text = { Text(location.name) },
+                onClick = {
+                    onLocationSelected(location.uuid)
+                    onDismiss()
+                },
+                leadingIcon = if (selectedLocationUuid == location.uuid) {
                     { Icon(Icons.Default.Check, contentDescription = null) }
                 } else null
             )

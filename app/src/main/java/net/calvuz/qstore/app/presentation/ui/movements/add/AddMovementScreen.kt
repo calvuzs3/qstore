@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import net.calvuz.qstore.app.domain.model.Location
 import net.calvuz.qstore.app.domain.model.enum.MovementType
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -81,6 +82,8 @@ fun AddMovementScreen(
                     onTypeChange = viewModel::onTypeChange,
                     onQuantityChange = viewModel::onQuantityChange,
                     onNotesChange = viewModel::onNotesChange,
+                    onFromLocationChange = viewModel::onFromLocationChange,
+                    onToLocationChange = viewModel::onToLocationChange,
                     onSaveClick = viewModel::onSaveClick,
                     modifier = Modifier.padding(padding)
                 )
@@ -119,6 +122,8 @@ private fun AddMovementContent(
     onTypeChange: (MovementType) -> Unit,
     onQuantityChange: (String) -> Unit,
     onNotesChange: (String) -> Unit,
+    onFromLocationChange: (String) -> Unit,
+    onToLocationChange: (String) -> Unit,
     onSaveClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -162,18 +167,35 @@ private fun AddMovementContent(
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.2f)
                 )
 
+                val relevantLocationUuid = when (state.type) {
+                    MovementType.OUT, MovementType.TRANSFER -> state.fromLocationUuid
+                    MovementType.IN -> state.toLocationUuid
+                    MovementType.ADJUSTMENT -> null
+                }
+                val relevantLocationName = state.locations.find { it.uuid == relevantLocationUuid }?.name
+                val giacenzaLabel = if (state.locations.size >= 2 && relevantLocationName != null) {
+                    "Giacenza in \"$relevantLocationName\""
+                } else {
+                    "Giacenza Attuale"
+                }
+                val giacenzaValue = when (state.type) {
+                    MovementType.OUT, MovementType.TRANSFER -> state.fromQuantity
+                    MovementType.IN -> state.toQuantity
+                    MovementType.ADJUSTMENT -> inventory?.currentQuantity ?: 0.0
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Giacenza Attuale",
+                        text = giacenzaLabel,
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Text(
-                        text = "${inventory?.currentQuantity ?: 0.0} ${article.unitOfMeasure}",
+                        text = "$giacenzaValue ${article.unitOfMeasure}",
                         style = MaterialTheme.typography.headlineSmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -307,6 +329,113 @@ private fun AddMovementContent(
                     )
                 }
             }
+
+            // Trasferimento (TRANSFER)
+            Card(
+                onClick = { onTypeChange(MovementType.TRANSFER) },
+                enabled = state.locations.size >= 2,
+                modifier = Modifier.weight(1f),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (state.type == MovementType.TRANSFER) {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    }
+                ),
+                border = if (state.type == MovementType.TRANSFER) {
+                    CardDefaults.outlinedCardBorder().copy(
+                        width = 2.dp,
+                        brush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.secondary)
+                    )
+                } else {
+                    null
+                }
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.CompareArrows,
+                        contentDescription = null,
+                        modifier = Modifier.size(48.dp),
+                        tint = if (state.type == MovementType.TRANSFER) {
+                            MaterialTheme.colorScheme.secondary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                    Text(
+                        text = "Trasferimento",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (state.type == MovementType.TRANSFER) {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                    Text(
+                        text = if (state.locations.size >= 2) "Tra magazzini" else "Serve un secondo magazzino",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (state.type == MovementType.TRANSFER) {
+                            MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        }
+                    )
+                }
+            }
+        }
+
+        // Magazzini (solo se ne esiste più di uno — altrimenti si usa silenziosamente l'unico)
+        if (state.locations.size >= 2) {
+            HorizontalDivider()
+
+            when (state.type) {
+                MovementType.IN -> {
+                    LocationDropdownField(
+                        label = "Magazzino di destinazione",
+                        locations = state.locations,
+                        selectedUuid = state.toLocationUuid,
+                        onSelected = onToLocationChange
+                    )
+                }
+                MovementType.OUT -> {
+                    LocationDropdownField(
+                        label = "Magazzino di partenza",
+                        locations = state.locations,
+                        selectedUuid = state.fromLocationUuid,
+                        onSelected = onFromLocationChange
+                    )
+                }
+                MovementType.TRANSFER -> {
+                    LocationDropdownField(
+                        label = "Da",
+                        locations = state.locations,
+                        selectedUuid = state.fromLocationUuid,
+                        onSelected = onFromLocationChange
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LocationDropdownField(
+                        label = "A",
+                        locations = state.locations.filter { it.uuid != state.fromLocationUuid },
+                        selectedUuid = state.toLocationUuid,
+                        onSelected = onToLocationChange
+                    )
+                }
+                MovementType.ADJUSTMENT -> Unit
+            }
+
+            state.locationError?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
         }
 
         HorizontalDivider()
@@ -327,14 +456,20 @@ private fun AddMovementContent(
             isError = state.quantityError != null,
             supportingText = state.quantityError?.let { { Text(it) } } ?: {
                 val newQuantity = state.quantity.toDoubleOrNull() ?: 0.0
-                val currentQty = inventory?.currentQuantity ?: 0.0
-                val resultQty = when (state.type) {
-                    MovementType.IN -> currentQty + newQuantity
-                    MovementType.OUT -> currentQty - newQuantity
-                    // Non selezionabili da questa schermata (nessun picker ADJUSTMENT/TRANSFER ancora)
-                    MovementType.ADJUSTMENT, MovementType.TRANSFER -> currentQty
+                when (state.type) {
+                    MovementType.IN -> Text(
+                        "Giacenza dopo movimento: ${state.toQuantity + newQuantity} ${article.unitOfMeasure}"
+                    )
+                    MovementType.OUT -> Text(
+                        "Giacenza dopo movimento: ${state.fromQuantity - newQuantity} ${article.unitOfMeasure}"
+                    )
+                    MovementType.TRANSFER -> Text(
+                        "Partenza: ${state.fromQuantity - newQuantity} • Arrivo: ${state.toQuantity + newQuantity} ${article.unitOfMeasure}"
+                    )
+                    MovementType.ADJUSTMENT -> Text(
+                        "Giacenza attuale: ${inventory?.currentQuantity ?: 0.0} ${article.unitOfMeasure}"
+                    )
                 }
-                Text("Giacenza dopo movimento: $resultQty ${article.unitOfMeasure}")
             },
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Decimal
@@ -359,10 +494,10 @@ private fun AddMovementContent(
             modifier = Modifier.fillMaxWidth()
         )
 
-        // Warning for OUT if insufficient
-        if (state.type == MovementType.OUT) {
+        // Warning se quantità insufficiente nel magazzino di partenza
+        if (state.type == MovementType.OUT || state.type == MovementType.TRANSFER) {
             val requestedQty = state.quantity.toDoubleOrNull() ?: 0.0
-            val availableQty = inventory?.currentQuantity ?: 0.0
+            val availableQty = state.fromQuantity
 
             if (requestedQty > availableQty) {
                 Card(
@@ -444,5 +579,57 @@ private fun AddMovementContent(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 8.dp)
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LocationDropdownField(
+    label: String,
+    locations: List<Location>,
+    selectedUuid: String?,
+    onSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedName = locations.find { it.uuid == selectedUuid }?.name ?: ""
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = selectedName,
+            onValueChange = { /* Read only, selezione via dropdown */ },
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = {
+                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+            },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth()
+        )
+
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            locations.forEach { location ->
+                DropdownMenuItem(
+                    text = { Text(location.name) },
+                    onClick = {
+                        onSelected(location.uuid)
+                        expanded = false
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.Warehouse,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                )
+            }
+        }
     }
 }

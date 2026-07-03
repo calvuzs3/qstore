@@ -13,4 +13,24 @@ interface LocationRepository {
     fun observeAll(): Flow<List<Location>>
 
     suspend fun getByUuid(uuid: String): Result<Location?>
+
+    suspend fun getByName(name: String): Result<Location?>
+
+    suspend fun insert(location: Location): Result<Unit>
+
+    suspend fun update(location: Location): Result<Unit>
+
+    /**
+     * Cancella (soft-delete) un'ubicazione. Fallisce se è l'unica rimasta o se ha ancora
+     * giacenza reale (vedi [canDelete]).
+     */
+    suspend fun delete(uuid: String): Result<Unit>
+
+    /**
+     * Verifica se un'ubicazione può essere cancellata: non deve essere l'unica rimasta e non
+     * deve avere giacenza (current_quantity > 0) in nessun articolo.
+     */
+    suspend fun canDelete(uuid: String): Result<Boolean>
+
+    suspend fun hasStock(uuid: String): Result<Boolean>
 }

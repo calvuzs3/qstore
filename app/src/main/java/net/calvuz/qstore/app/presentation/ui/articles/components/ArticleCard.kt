@@ -54,6 +54,7 @@ import java.io.File
  * @param showImage Se mostrare l'immagine thumbnail
  * @param showStockIndicator Se mostrare l'indicatore di stock
  * @param stockLevel Livello di stock per l'indicatore (null = non disponibile)
+ * @param quantityLabel Etichetta giacenza nel magazzino attivo (null = nessun magazzino selezionato, non mostrata)
  * @param onClick Callback click sulla card
  * @param onDeleteClick Callback eliminazione
  */
@@ -65,6 +66,7 @@ fun ArticleCard(
     showImage: Boolean = true,
     showStockIndicator: Boolean = true,
     stockLevel: StockLevel? = null,
+    quantityLabel: String? = null,
     onClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
@@ -89,6 +91,7 @@ fun ArticleCard(
             showImage = showImage,
             showStockIndicator = showStockIndicator,
             stockLevel = stockLevel,
+            quantityLabel = quantityLabel,
             onClick = onClick,
             onDeleteClick = { showDeleteDialog = true }
         )
@@ -99,6 +102,7 @@ fun ArticleCard(
             showImage = showImage,
             showStockIndicator = showStockIndicator,
             stockLevel = stockLevel,
+            quantityLabel = quantityLabel,
             onClick = onClick,
             onDeleteClick = { showDeleteDialog = true }
         )
@@ -108,6 +112,7 @@ fun ArticleCard(
             showImage = showImage,
             showStockIndicator = showStockIndicator,
             stockLevel = stockLevel,
+            quantityLabel = quantityLabel,
             onClick = onClick,
             onDeleteClick = { showDeleteDialog = true }
         )
@@ -124,6 +129,7 @@ private fun ArticleCardFull(
     showImage: Boolean,
     showStockIndicator: Boolean,
     stockLevel: StockLevel?,
+    quantityLabel: String?,
     onClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
@@ -164,6 +170,14 @@ private fun ArticleCardFull(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
+
+                    quantityLabel?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
 
                     if (showStockIndicator && stockLevel != null) {
                         StockIndicator(level = stockLevel)
@@ -233,6 +247,7 @@ private fun ArticleCardCompact(
     showImage: Boolean,
     showStockIndicator: Boolean,
     stockLevel: StockLevel?,
+    quantityLabel: String?,
     onClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
@@ -273,6 +288,14 @@ private fun ArticleCardCompact(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
+
+                    quantityLabel?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
 
                     if (showStockIndicator && stockLevel != null) {
                         StockIndicator(level = stockLevel)
@@ -329,6 +352,7 @@ private fun ArticleCardMinimal(
     showImage: Boolean,
     showStockIndicator: Boolean,
     stockLevel: StockLevel?,
+    quantityLabel: String?,
     onClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
@@ -366,6 +390,14 @@ private fun ArticleCardMinimal(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
+
+                quantityLabel?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
 
                 if (showStockIndicator && stockLevel != null) {
                     StockIndicator(level = stockLevel)

@@ -94,4 +94,12 @@ interface InventoryDao {
     """
     )
     fun observeLowStock(threshold: Double): Flow<List<InventoryEntity>>
+
+    /** Usata per bloccare la cancellazione di un'ubicazione che ha ancora giacenza reale. */
+    @Query("SELECT EXISTS(SELECT 1 FROM inventory WHERE location_uuid = :locationUuid AND current_quantity > 0)")
+    suspend fun hasStock(locationUuid: String): Boolean
+
+    /** Giacenza di ogni articolo in una specifica ubicazione — usata per filtrare/decorare la lista articoli. */
+    @Query("SELECT * FROM inventory WHERE location_uuid = :locationUuid")
+    fun observeByLocation(locationUuid: String): Flow<List<InventoryEntity>>
 }

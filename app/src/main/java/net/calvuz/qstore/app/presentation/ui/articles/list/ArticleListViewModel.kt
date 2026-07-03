@@ -3,13 +3,19 @@ package net.calvuz.qstore.app.presentation.ui.articles.list
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import net.calvuz.qstore.app.domain.model.Article
+import net.calvuz.qstore.app.domain.model.Location
 import net.calvuz.qstore.categories.domain.model.ArticleCategory
 import net.calvuz.qstore.categories.domain.repository.ArticleCategoryRepository
 import net.calvuz.qstore.app.domain.usecase.article.DeleteArticleUseCase
 import net.calvuz.qstore.app.domain.usecase.article.GetArticleUseCase
+import net.calvuz.qstore.app.domain.usecase.inventory.GetLocationStockUseCase
+import net.calvuz.qstore.app.domain.usecase.location.GetActiveLocationUseCase
+import net.calvuz.qstore.app.domain.usecase.location.GetLocationsUseCase
+import net.calvuz.qstore.app.domain.usecase.location.SetActiveLocationUseCase
 import net.calvuz.qstore.app.presentation.ui.articles.model.ArticleSortOrder
 import net.calvuz.qstore.settings.domain.model.DisplaySettings
 import net.calvuz.qstore.settings.domain.usecase.display.GetDisplaySettingsUseCase
@@ -22,14 +28,20 @@ import javax.inject.Inject
  * - Lista articoli
  * - Search
  * - Filtri per categoria (da database)
+ * - Filtro/quantità per magazzino attivo
  * - Eliminazione articoli
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ArticleListViewModel @Inject constructor(
     private val getArticleUseCase: GetArticleUseCase,
     private val deleteArticleUseCase: DeleteArticleUseCase,
     private val getDisplaySettingsUseCase: GetDisplaySettingsUseCase,
-    private val categoryRepository: ArticleCategoryRepository
+    private val categoryRepository: ArticleCategoryRepository,
+    private val getActiveLocationUseCase: GetActiveLocationUseCase,
+    private val setActiveLocationUseCase: SetActiveLocationUseCase,
+    private val getLocationsUseCase: GetLocationsUseCase,
+    private val getLocationStockUseCase: GetLocationStockUseCase
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -59,14 +71,43 @@ class ArticleListViewModel @Inject constructor(
             initialValue = emptyList()
         )
 
+    // Magazzino attivo (null = "Tutti i magazzini") e lista magazzini per il selettore
+    val activeLocation: StateFlow<Location?> = getActiveLocationUseCase()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = null
+        )
+
+    val locations: StateFlow<List<Location>> = getLocationsUseCase.observeAll()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    // Giacenza per articolo nel magazzino attivo; null = nessun magazzino selezionato (nessun filtro)
+    private val stockByArticle: Flow<Map<String, Double>?> = activeLocation.flatMapLatest { location ->
+        if (location == null) flowOf(null) else getLocationStockUseCase(location.uuid)
+    }
+
     // Osserva articoli e applica filtri
-    val articles: StateFlow<List<Article>> = combine(
+    val articles: StateFlow<List<ArticleWithStock>> = combine(
         getArticleUseCase.observeAll(),
         _searchQuery,
         _selectedCategoryId,
-        _sortOrder
-    ) { articles, query, categoryId, sortOrder ->
-        applyFiltersAndSort( articles, query, categoryId, sortOrder)
+        _sortOrder,
+        stockByArticle
+    ) { articles, query, categoryId, sortOrder, stockMap ->
+        val filtered = applyFiltersAndSort(articles, query, categoryId, sortOrder)
+        if (stockMap == null) {
+            filtered.map { ArticleWithStock(it, quantity = null) }
+        } else {
+            filtered.mapNotNull { article ->
+                val quantity = stockMap[article.uuid] ?: 0.0
+                if (quantity > 0) ArticleWithStock(article, quantity) else null
+            }
+        }
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5000),
@@ -123,6 +164,15 @@ class ArticleListViewModel @Inject constructor(
     fun clearFilters() {
         _searchQuery.value = ""
         _selectedCategoryId.value = null
+    }
+
+    /**
+     * Seleziona il magazzino attivo (null = "Tutti i magazzini")
+     */
+    fun selectLocation(locationUuid: String?) {
+        viewModelScope.launch {
+            setActiveLocationUseCase(locationUuid)
+        }
     }
 
     /**
@@ -193,6 +243,15 @@ class ArticleListViewModel @Inject constructor(
     }
 }
 
+
+/**
+ * Articolo decorato con la sua giacenza nel magazzino attivo.
+ * `quantity == null` significa "Tutti i magazzini" (nessuna quantità mostrata, filtro non applicato).
+ */
+data class ArticleWithStock(
+    val article: Article,
+    val quantity: Double?
+)
 
 /**
  * Stati UI per Article List

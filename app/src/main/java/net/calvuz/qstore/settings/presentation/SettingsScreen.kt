@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,6 +44,7 @@ fun SettingsScreen(
     onNavigateToDisplay: () -> Unit,
     onNavigateToRecognition: () -> Unit,
     onNavigateToCategories: () -> Unit,
+    onNavigateToLocations: () -> Unit,
     onNavigateToAbout: (() -> Unit),
     onNavigateToBackupRestore: (() -> Unit)? = null,
     onNavigateToData: (() -> Unit)? = null,
@@ -110,6 +112,13 @@ fun SettingsScreen(
                         title = "Categorie Articoli",
                         subtitle = "Gestisci le categorie del magazzino",
                         onClick = onNavigateToCategories
+                    )
+
+                    SettingsNavigationItem(
+                        icon = Icons.Default.Warehouse,
+                        title = "Magazzini",
+                        subtitle = "Gestisci le ubicazioni di magazzino",
+                        onClick = onNavigateToLocations
                     )
 
                     SettingsNavigationItem(
