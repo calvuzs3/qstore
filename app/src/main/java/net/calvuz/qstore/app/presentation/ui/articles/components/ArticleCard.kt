@@ -42,6 +42,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import net.calvuz.qstore.app.domain.model.Article
+import net.calvuz.qstore.app.presentation.ui.theme.PlexMono
+import net.calvuz.qstore.app.presentation.ui.theme.registrationTicks
 import net.calvuz.qstore.settings.domain.model.ArticleCardStyle
 import java.io.File
 
@@ -135,14 +137,16 @@ private fun ArticleCardFull(
 ) {
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .registrationTicks(color = MaterialTheme.colorScheme.primary),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Thumbnail grande
             if (showImage) {
@@ -175,6 +179,7 @@ private fun ArticleCardFull(
                         Text(
                             text = it,
                             style = MaterialTheme.typography.labelMedium,
+                            fontFamily = PlexMono,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -253,14 +258,16 @@ private fun ArticleCardCompact(
 ) {
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .registrationTicks(color = MaterialTheme.colorScheme.primary),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Thumbnail media
             if (showImage) {
@@ -293,6 +300,7 @@ private fun ArticleCardCompact(
                         Text(
                             text = it,
                             style = MaterialTheme.typography.labelMedium,
+                            fontFamily = PlexMono,
                             color = MaterialTheme.colorScheme.primary
                         )
                     }
@@ -358,15 +366,17 @@ private fun ArticleCardMinimal(
 ) {
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .registrationTicks(color = MaterialTheme.colorScheme.primary),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 8.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Thumbnail piccola
             if (showImage) {
@@ -395,6 +405,7 @@ private fun ArticleCardMinimal(
                     Text(
                         text = it,
                         style = MaterialTheme.typography.labelMedium,
+                        fontFamily = PlexMono,
                         color = MaterialTheme.colorScheme.primary
                     )
                 }

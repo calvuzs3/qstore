@@ -32,25 +32,25 @@ fun ErrorState(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.padding(Spacing.xxl),
+        modifier = modifier.padding(Spacing.xl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Icon(
             Icons.Default.Error,
             contentDescription = null,
-            modifier = Modifier.size(72.dp),
+            modifier = Modifier.size(56.dp),
             tint = MaterialTheme.colorScheme.error
         )
 
-        Spacer(modifier = Modifier.height(Spacing.lg))
+        Spacer(modifier = Modifier.height(Spacing.sm))
 
         Text(
             "Errore",
             style = MaterialTheme.typography.titleLarge
         )
 
-        Spacer(modifier = Modifier.height(Spacing.sm))
+        Spacer(modifier = Modifier.height(Spacing.xs))
 
         Text(
             message,
@@ -58,7 +58,7 @@ fun ErrorState(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(modifier = Modifier.height(Spacing.xl))
+        Spacer(modifier = Modifier.height(Spacing.lg))
 
         Button(onClick = onRetry) {
             Icon(Icons.Default.Refresh, contentDescription = null)

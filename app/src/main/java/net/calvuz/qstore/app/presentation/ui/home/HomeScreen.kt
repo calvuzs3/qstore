@@ -19,6 +19,8 @@ import net.calvuz.qstore.app.domain.model.Article
 import net.calvuz.qstore.app.domain.model.Movement
 import net.calvuz.qstore.app.domain.model.enum.MovementType
 import net.calvuz.qstore.app.presentation.ui.common.ErrorState
+import net.calvuz.qstore.app.presentation.ui.theme.PlexMono
+import net.calvuz.qstore.app.presentation.ui.theme.registrationTicks
 
 /**
  * Home Screen - Dashboard principale
@@ -284,7 +286,9 @@ private fun QuickActionButton(
             Icon(icon, contentDescription = label)
             Text(
                 label,
-                style = MaterialTheme.typography.labelSmall
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
             )
         }
     }
@@ -292,44 +296,44 @@ private fun QuickActionButton(
 
 @Composable
 private fun StatsCard(stats: DashboardStats) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            "Statistiche Magazzino",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text(
-                "📊 Statistiche Magazzino",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
+            // Esauriti è l'unico che diventa arancio, e solo se > 0 — la severità si legge
+            // per intensità dell'unico accento, non per un secondo colore semantico.
+            val outOfStockColor = if (stats.articlesOutOfStock > 0) {
+                MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            }
+
+            StatItem(
+                value = stats.totalArticles.toString(),
+                label = "Articoli Totali",
+                modifier = Modifier.weight(1f)
             )
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                StatItem(
-                    value = stats.totalArticles.toString(),
-                    label = "Articoli Totali",
-                    icon = Icons.Default.Category
-                )
+            StatItem(
+                value = stats.articlesWithStock.toString(),
+                label = "A Magazzino",
+                modifier = Modifier.weight(1f)
+            )
 
-                StatItem(
-                    value = stats.articlesWithStock.toString(),
-                    label = "A Magazzino",
-                    icon = Icons.Default.CheckCircle,
-                    color = MaterialTheme.colorScheme.primary
-                )
-
-                StatItem(
-                    value = stats.articlesOutOfStock.toString(),
-                    label = "Esauriti",
-                    icon = Icons.Default.Warning,
-                    color = MaterialTheme.colorScheme.error
-                )
-            }
+            StatItem(
+                value = stats.articlesOutOfStock.toString(),
+                label = "Esauriti",
+                color = outOfStockColor,
+                tickColor = outOfStockColor,
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }
@@ -338,30 +342,32 @@ private fun StatsCard(stats: DashboardStats) {
 private fun StatItem(
     value: String,
     label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface
+    modifier: Modifier = Modifier,
+    color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface,
+    tickColor: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.outline
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+    Card(
+        modifier = modifier.registrationTicks(color = tickColor),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Icon(
-            icon,
-            contentDescription = null,
-            tint = color,
-            modifier = Modifier.size(32.dp)
-        )
-        Text(
-            value,
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold,
-            color = color
-        )
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                value,
+                style = MaterialTheme.typography.headlineSmall,
+                fontFamily = PlexMono,
+                color = color
+            )
+            Text(
+                label,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

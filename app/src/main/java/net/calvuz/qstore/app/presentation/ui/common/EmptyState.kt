@@ -30,18 +30,18 @@ fun EmptyState(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.padding(Spacing.xxl),
+        modifier = modifier.padding(Spacing.xl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Icon(
             icon,
             contentDescription = null,
-            modifier = Modifier.size(72.dp),
+            modifier = Modifier.size(56.dp),
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(modifier = Modifier.height(Spacing.lg))
+        Spacer(modifier = Modifier.height(Spacing.sm))
 
         Text(
             message,
@@ -49,7 +49,7 @@ fun EmptyState(
         )
 
         if (onAction != null && actionLabel != null) {
-            Spacer(modifier = Modifier.height(Spacing.xl))
+            Spacer(modifier = Modifier.height(Spacing.lg))
 
             Button(onClick = onAction) {
                 Text(actionLabel)

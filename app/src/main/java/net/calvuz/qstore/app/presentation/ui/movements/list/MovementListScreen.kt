@@ -16,6 +16,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import net.calvuz.qstore.app.domain.model.enum.MovementType
 import net.calvuz.qstore.app.presentation.ui.common.EmptyState
 import net.calvuz.qstore.app.presentation.ui.common.ErrorState
+import net.calvuz.qstore.app.presentation.ui.theme.PlexMono
+import net.calvuz.qstore.app.presentation.ui.theme.registrationTicks
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -217,19 +219,28 @@ private fun MovementCard(
     val movement = movementWithArticle.movement
     val article = movementWithArticle.article
 
+    val typeAccent = when (movement.type) {
+        MovementType.IN -> MaterialTheme.colorScheme.primary
+        MovementType.OUT -> MaterialTheme.colorScheme.error
+        MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.tertiary
+        MovementType.TRANSFER -> MaterialTheme.colorScheme.secondary
+    }
+
     Card(
         onClick = if (article != null) onArticleClick else { {} },
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .registrationTicks(color = typeAccent)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Icona tipo movimento
             Surface(
-                modifier = Modifier.size(48.dp),
+                modifier = Modifier.size(40.dp),
                 shape = MaterialTheme.shapes.small,
                 color = when (movement.type) {
                     MovementType.IN -> MaterialTheme.colorScheme.primaryContainer
@@ -246,7 +257,7 @@ private fun MovementCard(
                         MovementType.TRANSFER -> Icons.AutoMirrored.Filled.CompareArrows
                     },
                     contentDescription = null,
-                    modifier = Modifier.padding(12.dp),
+                    modifier = Modifier.padding(8.dp),
                     tint = when (movement.type) {
                         MovementType.IN -> MaterialTheme.colorScheme.onPrimaryContainer
                         MovementType.OUT -> MaterialTheme.colorScheme.onErrorContainer
@@ -282,12 +293,7 @@ private fun MovementCard(
                         MovementType.TRANSFER -> "Trasferimento"
                     },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = when (movement.type) {
-                        MovementType.IN -> MaterialTheme.colorScheme.primary
-                        MovementType.OUT -> MaterialTheme.colorScheme.error
-                        MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.tertiary
-                        MovementType.TRANSFER -> MaterialTheme.colorScheme.secondary
-                    }
+                    color = typeAccent
                 )
 
                 // Note (se presenti)
@@ -303,6 +309,7 @@ private fun MovementCard(
                 Text(
                     text = formatTimestamp(movement.createdAt),
                     style = MaterialTheme.typography.bodySmall,
+                    fontFamily = PlexMono,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -315,13 +322,9 @@ private fun MovementCard(
                 Text(
                     text = "${if (movement.toLocationUuid != null) "+" else "-"}${movement.quantity}",
                     style = MaterialTheme.typography.titleLarge,
+                    fontFamily = PlexMono,
                     fontWeight = FontWeight.Bold,
-                    color = when (movement.type) {
-                        MovementType.IN -> MaterialTheme.colorScheme.primary
-                        MovementType.OUT -> MaterialTheme.colorScheme.error
-                        MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.tertiary
-                        MovementType.TRANSFER -> MaterialTheme.colorScheme.secondary
-                    }
+                    color = typeAccent
                 )
 
                 if (article != null) {

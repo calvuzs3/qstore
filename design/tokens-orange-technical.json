@@ -1,0 +1,46 @@
+{
+  "_source": "Opzione 3: struttura/tipografia dell'opzione 2 (nameplate/mire d'angolo) + SOLO due colori (arancio+graphite). Nessun teal/pino/verde/rosso.",
+  "global": {
+    "color": {
+      "orange":   { "value": "#E88706", "type": "color", "description": "Unico accento — brand, interattivo, severità (contorno/tinta/pieno)" },
+      "graphite": { "value": "#333333", "type": "color", "description": "Testo primario" },
+      "paper":    { "value": "#F4F4F4", "type": "color", "description": "Sfondo pagina" },
+      "border":   { "value": "#E3E3E3", "type": "color", "description": "Bordi/hairline" },
+      "slate":    { "value": "#707070", "type": "color", "description": "Testo secondario" }
+    },
+    "spacing": {
+      "xs": { "value": "4", "type": "spacing" },
+      "sm": { "value": "8", "type": "spacing" },
+      "md": { "value": "12", "type": "spacing" },
+      "lg": { "value": "16", "type": "spacing" },
+      "xl": { "value": "24", "type": "spacing" },
+      "xxl": { "value": "32", "type": "spacing" }
+    },
+    "spacingUsage": {
+      "note": "Stessa scala di Spacing.kt. In questa opzione i componenti (card, liste, bottoni, campi) usano i gradini piu' bassi (xs/sm) invece di md/lg; titoli e ritmo tra sezioni restano su lg/xl/xxl com'era nell'opzione 2 — la densita' cambia solo dentro i componenti."
+    },
+    "fontFamilies": {
+      "display": { "value": "Big Shoulders Display", "type": "fontFamilies" },
+      "body": { "value": "IBM Plex Sans", "type": "fontFamilies" },
+      "mono": { "value": "IBM Plex Mono", "type": "fontFamilies" }
+    }
+  },
+  "light": {
+    "bg": { "value": "{global.color.paper}", "type": "color" },
+    "surface": { "value": "#FFFFFF", "type": "color" },
+    "border": { "value": "{global.color.border}", "type": "color" },
+    "text": { "value": "{global.color.graphite}", "type": "color" },
+    "textSecondary": { "value": "{global.color.slate}", "type": "color" },
+    "accent": { "value": "{global.color.orange}", "type": "color" },
+    "accentOn": { "value": "#FFFFFF", "type": "color" }
+  },
+  "dark": {
+    "bg": { "value": "#1B1B1B", "type": "color" },
+    "surface": { "value": "#262626", "type": "color" },
+    "border": { "value": "#3A3A3A", "type": "color" },
+    "text": { "value": "#F2F2F2", "type": "color" },
+    "textSecondary": { "value": "#ABABAB", "type": "color" },
+    "accent": { "value": "#F0993A", "type": "color" },
+    "accentOn": { "value": "#1B1B1B", "type": "color" }
+  }
+}
