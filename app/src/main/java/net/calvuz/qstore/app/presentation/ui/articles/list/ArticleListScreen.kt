@@ -18,6 +18,8 @@ import net.calvuz.qstore.categories.domain.model.ArticleCategory
 import net.calvuz.qstore.app.presentation.ui.articles.components.ArticleCard
 import net.calvuz.qstore.app.presentation.ui.articles.model.ArticleSortOrder
 import net.calvuz.qstore.app.presentation.ui.articles.model.getDisplayName
+import net.calvuz.qstore.app.presentation.ui.common.EmptyState
+import net.calvuz.qstore.app.presentation.ui.common.ErrorState
 
 /**
  * Article List Screen
@@ -207,9 +209,10 @@ fun ArticleListScreen(
                 }
 
                 is ArticleListUiState.Error -> {
-                    ErrorMessage(
+                    ErrorState(
                         message = (uiState as ArticleListUiState.Error).message,
-                        onRetry = { viewModel.refresh() }
+                        onRetry = { viewModel.refresh() },
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
 
@@ -222,6 +225,7 @@ fun ArticleListScreen(
                                 hasFilters -> "Nessun articolo trovato"
                                 else -> "Nessun articolo in magazzino"
                             },
+                            icon = Icons.Default.Category,
                             onAction = when {
                                 activeLocation != null -> { { viewModel.selectLocation(null) } }
                                 hasFilters -> { { viewModel.clearFilters() } }
@@ -231,7 +235,8 @@ fun ArticleListScreen(
                                 activeLocation != null -> "Mostra tutti i magazzini"
                                 hasFilters -> "Cancella filtri"
                                 else -> "Aggiungi primo articolo"
-                            }
+                            },
+                            modifier = Modifier.fillMaxSize()
                         )
                     } else {
                         LazyColumn(
@@ -365,85 +370,6 @@ private fun SortOrderBar(
             ) {
                 Text("Reset", style = MaterialTheme.typography.bodySmall)
             }
-        }
-    }
-}
-
-@Composable
-private fun EmptyState(
-    message: String,
-    onAction: () -> Unit,
-    actionLabel: String
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            Icons.Default.Category,
-            contentDescription = null,
-            modifier = Modifier.size(72.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            message,
-            style = MaterialTheme.typography.titleLarge
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(onClick = onAction) {
-            Text(actionLabel)
-        }
-    }
-}
-
-@Composable
-private fun ErrorMessage(
-    message: String,
-    onRetry: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            Icons.Default.Error,
-            contentDescription = null,
-            modifier = Modifier.size(72.dp),
-            tint = MaterialTheme.colorScheme.error
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            "Errore",
-            style = MaterialTheme.typography.titleLarge
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(onClick = onRetry) {
-            Icon(Icons.Default.Refresh, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Riprova")
         }
     }
 }

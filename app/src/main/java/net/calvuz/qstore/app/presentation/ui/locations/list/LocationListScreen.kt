@@ -15,6 +15,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlinx.coroutines.flow.collectLatest
 import net.calvuz.qstore.app.domain.model.Location
+import net.calvuz.qstore.app.presentation.ui.common.EmptyState
+import net.calvuz.qstore.app.presentation.ui.common.ErrorState
+import net.calvuz.qstore.app.presentation.ui.common.ListItemCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -102,9 +105,10 @@ fun LocationListScreen(
                 }
 
                 is LocationListUiState.Error -> {
-                    ErrorMessage(
+                    ErrorState(
                         message = (uiState as LocationListUiState.Error).message,
-                        onRetry = { viewModel.refresh() }
+                        onRetry = { viewModel.refresh() },
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
 
@@ -116,6 +120,7 @@ fun LocationListScreen(
                             } else {
                                 "Nessun magazzino"
                             },
+                            icon = Icons.Default.Warehouse,
                             onAction = if (searchQuery.isNotBlank()) {
                                 { viewModel.onSearchQueryChange("") }
                             } else {
@@ -125,7 +130,8 @@ fun LocationListScreen(
                                 "Cancella ricerca"
                             } else {
                                 "Crea primo magazzino"
-                            }
+                            },
+                            modifier = Modifier.fillMaxSize()
                         )
                     } else {
                         LazyColumn(
@@ -134,8 +140,10 @@ fun LocationListScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             items(locations, key = { it.uuid }) { location ->
-                                LocationCard(
-                                    location = location,
+                                ListItemCard(
+                                    icon = Icons.Default.Warehouse,
+                                    title = location.name,
+                                    subtitle = location.notes.takeIf { it.isNotBlank() },
                                     onClick = { onLocationClick(location.uuid) },
                                     onDeleteClick = { locationToDelete = location }
                                 )
@@ -203,143 +211,3 @@ fun LocationListScreen(
     }
 }
 
-@Composable
-private fun LocationCard(
-    location: Location,
-    onClick: () -> Unit,
-    onDeleteClick: () -> Unit
-) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(48.dp)
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        Icons.Default.Warehouse,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = location.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                if (location.notes.isNotBlank()) {
-                    Text(
-                        text = location.notes,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-
-            IconButton(onClick = onDeleteClick) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Elimina",
-                    tint = MaterialTheme.colorScheme.error
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun EmptyState(
-    message: String,
-    onAction: () -> Unit,
-    actionLabel: String
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            Icons.Default.Warehouse,
-            contentDescription = null,
-            modifier = Modifier.size(72.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            message,
-            style = MaterialTheme.typography.titleLarge
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(onClick = onAction) {
-            Text(actionLabel)
-        }
-    }
-}
-
-@Composable
-private fun ErrorMessage(
-    message: String,
-    onRetry: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Icon(
-            Icons.Default.Error,
-            contentDescription = null,
-            modifier = Modifier.size(72.dp),
-            tint = MaterialTheme.colorScheme.error
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Text(
-            "Errore",
-            style = MaterialTheme.typography.titleLarge
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        Button(onClick = onRetry) {
-            Icon(Icons.Default.Refresh, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Riprova")
-        }
-    }
-}
