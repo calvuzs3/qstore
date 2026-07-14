@@ -169,7 +169,7 @@ private fun AddArticleContent(
             supportingText = state.nameError?.let { { Text(it) } },
             singleLine = true,
             keyboardOptions = KeyboardOptions(
-                capitalization = KeyboardCapitalization.Words
+                capitalization = KeyboardCapitalization.Sentences
             ),
             modifier = Modifier.fillMaxWidth()
         )
@@ -182,31 +182,10 @@ private fun AddArticleContent(
             placeholder = { Text("Descrizione dettagliata dell'articolo") },
             minLines = 2,
             maxLines = 4,
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Sentences
+            ),
             modifier = Modifier.fillMaxWidth()
-        )
-
-        HorizontalDivider()
-
-        // Section: Foto Articolo
-        Text(
-            text = "Foto Articolo",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        Text(
-            text = "Le foto permettono di riconoscere l'articolo tramite la fotocamera",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        // Grid immagini
-        PhotosGrid(
-            capturedImages = state.capturedImages,
-            savedImages = state.savedImages,
-            onAddPhotoClick = onAddPhotoClick,
-            onRemoveCapturedImage = onRemoveCapturedImage,
-            onRemoveSavedImage = onRemoveSavedImage
         )
 
         HorizontalDivider()
@@ -274,69 +253,6 @@ private fun AddArticleContent(
                 }
             }
         }
-
-        HorizontalDivider()
-
-        // Section: Codici Esterni
-        Text(
-            text = "Codici Esterni",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-
-        Text(
-            text = "Codici per collegamento a sistemi esterni (opzionali)",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        // Codice OEM
-        OutlinedTextField(
-            value = state.codeOEM,
-            onValueChange = onCodeOEMChange,
-            label = { Text("Codice OEM") },
-            placeholder = { Text("Codice produttore originale") },
-            singleLine = true,
-            leadingIcon = {
-                Icon(Icons.Default.Factory, "OEM")
-            },
-            keyboardOptions = KeyboardOptions(
-                capitalization = KeyboardCapitalization.Characters
-            ),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        // Codice ERP
-        OutlinedTextField(
-            value = state.codeERP,
-            onValueChange = onCodeERPChange,
-            label = { Text("Codice ERP") },
-            placeholder = { Text("Codice gestionale aziendale") },
-            singleLine = true,
-            leadingIcon = {
-                Icon(Icons.Default.Business, "ERP")
-            },
-            keyboardOptions = KeyboardOptions(
-                capitalization = KeyboardCapitalization.Characters
-            ),
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        // Codice BM (Business Manager o altro)
-        OutlinedTextField(
-            value = state.codeBM,
-            onValueChange = onCodeBMChange,
-            label = { Text("Codice BM") },
-            placeholder = { Text("Codice business manager") },
-            singleLine = true,
-            leadingIcon = {
-                Icon(Icons.Default.Badge, "BM")
-            },
-            keyboardOptions = KeyboardOptions(
-                capitalization = KeyboardCapitalization.Characters
-            ),
-            modifier = Modifier.fillMaxWidth()
-        )
 
         HorizontalDivider()
 
@@ -424,6 +340,93 @@ private fun AddArticleContent(
                 modifier = Modifier.fillMaxWidth()
             )
         }
+
+        HorizontalDivider()
+
+        // Section: Foto Articolo
+        Text(
+            text = "Foto Articolo",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Text(
+            text = "Le foto permettono di riconoscere l'articolo tramite la fotocamera",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        // Grid immagini
+        PhotosGrid(
+            capturedImages = state.capturedImages,
+            savedImages = state.savedImages,
+            onAddPhotoClick = onAddPhotoClick,
+            onRemoveCapturedImage = onRemoveCapturedImage,
+            onRemoveSavedImage = onRemoveSavedImage
+        )
+
+        HorizontalDivider()
+
+        // Section: Codici Esterni
+        Text(
+            text = "Codici Esterni",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Text(
+            text = "Codici per collegamento a sistemi esterni (opzionali)",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        // Codice OEM
+        OutlinedTextField(
+            value = state.codeOEM,
+            onValueChange = onCodeOEMChange,
+            label = { Text("Codice OEM") },
+            placeholder = { Text("Codice produttore originale") },
+            singleLine = true,
+            leadingIcon = {
+                Icon(Icons.Default.Factory, "OEM")
+            },
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Characters
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Codice ERP
+        OutlinedTextField(
+            value = state.codeERP,
+            onValueChange = onCodeERPChange,
+            label = { Text("Codice ERP") },
+            placeholder = { Text("Codice gestionale aziendale") },
+            singleLine = true,
+            leadingIcon = {
+                Icon(Icons.Default.Business, "ERP")
+            },
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Characters
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        // Codice BM (Business Manager o altro)
+        OutlinedTextField(
+            value = state.codeBM,
+            onValueChange = onCodeBMChange,
+            label = { Text("Codice BM") },
+            placeholder = { Text("Codice business manager") },
+            singleLine = true,
+            leadingIcon = {
+                Icon(Icons.Default.Badge, "BM")
+            },
+            keyboardOptions = KeyboardOptions(
+                capitalization = KeyboardCapitalization.Characters
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
 
         HorizontalDivider()
 
