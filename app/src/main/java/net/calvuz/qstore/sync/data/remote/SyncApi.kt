@@ -16,9 +16,9 @@ import io.ktor.http.isSuccess
 import kotlinx.coroutines.flow.first
 import net.calvuz.qstore.auth.domain.repository.AuthRepository
 import net.calvuz.qstore.settings.domain.repository.ServerSettingsRepository
-import net.calvuz.qstore.sync.data.remote.dto.SyncPullResponse
-import net.calvuz.qstore.sync.data.remote.dto.SyncPushRequest
-import net.calvuz.qstore.sync.data.remote.dto.SyncPushResponse
+import net.calvuz.qstore.shared.dto.SyncPullResponse
+import net.calvuz.qstore.shared.dto.SyncPushRequest
+import net.calvuz.qstore.shared.dto.SyncPushResponse
 import net.calvuz.qstore.sync.domain.model.SyncException
 import timber.log.Timber
 import java.io.IOException

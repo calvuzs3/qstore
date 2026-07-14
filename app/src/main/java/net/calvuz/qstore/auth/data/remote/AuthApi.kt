@@ -14,10 +14,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.decodeFromJsonElement
-import net.calvuz.qstore.auth.data.remote.dto.LoginOrgChoiceResponseDto
-import net.calvuz.qstore.auth.data.remote.dto.LoginRequestDto
-import net.calvuz.qstore.auth.data.remote.dto.LoginResponseDto
-import net.calvuz.qstore.auth.data.remote.dto.SelectOrgRequestDto
+import net.calvuz.qstore.shared.dto.LoginOrgChoiceResponse
+import net.calvuz.qstore.shared.dto.LoginRequest
+import net.calvuz.qstore.shared.dto.LoginResponse
+import net.calvuz.qstore.shared.dto.SelectOrgRequest
 import net.calvuz.qstore.auth.domain.model.AuthException
 import net.calvuz.qstore.settings.domain.repository.ServerSettingsRepository
 import java.io.IOException
@@ -25,8 +25,8 @@ import javax.inject.Inject
 
 /** Risposta di /auth/login: le due forme non condivise da un discriminatore esplicito nel JSON. */
 sealed class LoginApiResponse {
-    data class FullToken(val dto: LoginResponseDto) : LoginApiResponse()
-    data class OrgChoice(val dto: LoginOrgChoiceResponseDto) : LoginApiResponse()
+    data class FullToken(val dto: LoginResponse) : LoginApiResponse()
+    data class OrgChoice(val dto: LoginOrgChoiceResponse) : LoginApiResponse()
 }
 
 class AuthApi @Inject constructor(
@@ -43,7 +43,7 @@ class AuthApi @Inject constructor(
         val response = request {
             httpClient.post("${baseUrl()}/auth/login") {
                 contentType(ContentType.Application.Json)
-                setBody(LoginRequestDto(email, password))
+                setBody(LoginRequest(email, password))
             }
         }
 
@@ -52,18 +52,18 @@ class AuthApi @Inject constructor(
         // quale chiave è presente nel JSON.
         val json = response.body<JsonObject>()
         return if (json.containsKey("pendingToken")) {
-            LoginApiResponse.OrgChoice(Json.decodeFromJsonElement<LoginOrgChoiceResponseDto>(json))
+            LoginApiResponse.OrgChoice(Json.decodeFromJsonElement<LoginOrgChoiceResponse>(json))
         } else {
-            LoginApiResponse.FullToken(Json.decodeFromJsonElement<LoginResponseDto>(json))
+            LoginApiResponse.FullToken(Json.decodeFromJsonElement<LoginResponse>(json))
         }
     }
 
-    suspend fun selectOrganization(pendingToken: String, orgId: String): LoginResponseDto {
+    suspend fun selectOrganization(pendingToken: String, orgId: String): LoginResponse {
         val response = request {
             httpClient.post("${baseUrl()}/auth/select-org") {
                 contentType(ContentType.Application.Json)
                 bearerAuth(pendingToken)
-                setBody(SelectOrgRequestDto(orgId))
+                setBody(SelectOrgRequest(orgId))
             }
         }
         return response.body()

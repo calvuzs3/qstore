@@ -26,7 +26,7 @@ android {
         targetSdk = 35
 
         versionCode = 3
-        versionName = "1.4.1"
+        versionName = "1.4.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -185,6 +185,9 @@ dependencies {
 
     // Kotlin Serialization (richiesto da Room per schema export)
     implementation(libs.kotlinx.serialization.json)
+
+    // KMP shared DTOs (composite build — vedi settings.gradle.kts)
+    implementation("net.calvuz:quickstore-shared:0.1.0")
 
     // Ktor Client (sync con quickstore-server)
     implementation(libs.ktor.client.core)
