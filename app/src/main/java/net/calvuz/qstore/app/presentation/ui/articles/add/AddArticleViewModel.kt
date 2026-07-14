@@ -26,6 +26,9 @@ import net.calvuz.qstore.util.BitmapUtils
 import javax.inject.Inject
 import kotlin.onSuccess
 
+private fun String.capitalizeFirstLetter(): String =
+    if (isEmpty()) this else this[0].uppercaseChar() + substring(1)
+
 data class CapturedImage(
     val id: String,
     val bitmap: Bitmap,
@@ -105,6 +108,22 @@ class AddArticleViewModel @Inject constructor(
         if (articleId != null) {
             _state.update { it.copy(isEditMode = true, articleUuid = articleId) }
             loadArticle(articleId)
+        } else {
+            prefillLastUsedCategory()
+        }
+    }
+
+    /**
+     * In creazione, preseleziona la categoria dell'ultimo articolo inserito
+     * per velocizzare l'inserimento di articoli simili in sequenza.
+     */
+    private fun prefillLastUsedCategory() {
+        viewModelScope.launch {
+            getArticleUseCase.getAll().onSuccess { articles ->
+                val lastArticle = articles.maxByOrNull { it.createdAt } ?: return@onSuccess
+                val category = categoryRepository.getByUuid(lastArticle.categoryId) ?: return@onSuccess
+                _state.update { it.copy(categoryId = category.uuid, categoryName = category.name) }
+            }
         }
     }
 
@@ -169,11 +188,11 @@ class AddArticleViewModel @Inject constructor(
 
     // Form field updates
     fun onNameChange(value: String) {
-        _state.update { it.copy(name = value, nameError = null) }
+        _state.update { it.copy(name = value.capitalizeFirstLetter(), nameError = null) }
     }
 
     fun onDescriptionChange(value: String) {
-        _state.update { it.copy(description = value) }
+        _state.update { it.copy(description = value.capitalizeFirstLetter()) }
     }
 
     /**

@@ -15,7 +15,7 @@ import net.calvuz.qstore.app.presentation.ui.camera.SearchResultsScreen
 import net.calvuz.qstore.app.presentation.ui.home.HomeScreen
 import net.calvuz.qstore.app.presentation.ui.locations.edit.LocationEditScreen
 import net.calvuz.qstore.app.presentation.ui.locations.list.LocationListScreen
-import net.calvuz.qstore.app.presentation.ui.movements.add.AddMovementScreen
+import net.calvuz.qstore.app.presentation.ui.movements.add.AddMovementBottomSheet
 import net.calvuz.qstore.app.presentation.ui.movements.list.MovementListScreen
 import net.calvuz.qstore.auth.presentation.login.LoginScreen
 import net.calvuz.qstore.backup.presentation.BackupRestoreScreen
@@ -170,6 +170,25 @@ fun AppNavigation(
             )
         }
 
+        // ========== ADD MOVEMENT (bottom sheet) ==========
+        composable(
+            route = Screen.AddMovement.route,
+            arguments = listOf(
+                navArgument("articleId") {
+                    type = NavType.StringType
+                }
+            )
+        ) { backStackEntry ->
+            val articleId = backStackEntry.arguments?.getString("articleId") ?: return@composable
+
+            AddMovementBottomSheet(
+                articleId = articleId,
+                onDismiss = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
         // ========== ADD ARTICLE SCREEN ==========
         composable(Screen.AddArticle.route) {
             AddArticleScreen(
@@ -189,25 +208,6 @@ fun AppNavigation(
             )
         ) {
             AddArticleScreen(
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
-            )
-        }
-
-        // ========== ADD MOVEMENT SCREEN ==========
-        composable(
-            route = Screen.AddMovement.route,
-            arguments = listOf(
-                navArgument("articleId") {
-                    type = NavType.StringType
-                }
-            )
-        ) { backStackEntry ->
-            val articleId = backStackEntry.arguments?.getString("articleId") ?: return@composable
-
-            AddMovementScreen(
-                articleId = articleId,
                 onNavigateBack = {
                     navController.popBackStack()
                 }

@@ -21,6 +21,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import coil.compose.AsyncImage
 import net.calvuz.qstore.app.domain.model.Article
 import net.calvuz.qstore.categories.domain.model.ArticleCategory
@@ -44,6 +46,13 @@ fun ArticleDetailScreen(
     val state by viewModel.state.collectAsState()
     val events by viewModel.events.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Movimenti/immagini possono essere cambiati dal bottom sheet di aggiunta movimento,
+    // che vive nella sua route separata — un refresh ad ogni resume copre il rientro
+    // indipendentemente dai tempi degli eventi del ViewModel di quella schermata.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.onRefresh()
+    }
 
     // Handle events
     LaunchedEffect(events) {

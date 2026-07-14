@@ -34,7 +34,7 @@ data class AddMovementState(
 
     // Form fields
     val type: MovementType = MovementType.IN,
-    val quantity: String = "",
+    val quantity: String = "1",
     val notes: String = "",
 
     // Validation errors
@@ -207,6 +207,17 @@ class AddMovementViewModel @Inject constructor(
         }
 
         _state.update { it.copy(quantity = finalValue, quantityError = null) }
+    }
+
+    fun onQuantityStep(delta: Double) {
+        val current = _state.value.quantity.toDoubleOrNull() ?: 0.0
+        val next = (current + delta).coerceAtLeast(0.0)
+        val formatted = if (next == next.toLong().toDouble()) {
+            next.toLong().toString()
+        } else {
+            next.toString()
+        }
+        _state.update { it.copy(quantity = formatted, quantityError = null) }
     }
 
     fun onNotesChange(value: String) {
