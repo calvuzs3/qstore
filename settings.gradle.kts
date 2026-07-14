@@ -21,4 +21,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "Quick Store"
 include(":app")
+
+includeBuild("../quickstore-shared")
  

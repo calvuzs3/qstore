@@ -8,7 +8,7 @@ import net.calvuz.qstore.auth.data.JwtDecoder
 import net.calvuz.qstore.auth.data.TokenStore
 import net.calvuz.qstore.auth.data.remote.AuthApi
 import net.calvuz.qstore.auth.data.remote.LoginApiResponse
-import net.calvuz.qstore.auth.data.remote.dto.LoginResponseDto
+import net.calvuz.qstore.shared.dto.LoginResponse
 import net.calvuz.qstore.auth.domain.model.LoginResult
 import net.calvuz.qstore.auth.domain.model.OrganizationChoice
 import net.calvuz.qstore.auth.domain.model.Session
@@ -62,7 +62,7 @@ class AuthRepositoryImpl @Inject constructor(
         _session.value = null
     }
 
-    private fun persistAndBuildSession(dto: LoginResponseDto): Session {
+    private fun persistAndBuildSession(dto: LoginResponse): Session {
         tokenStore.save(dto.token, dto.orgName)
         val payload = JwtDecoder.decodePayload(dto.token)
         val userId = JwtDecoder.claim(payload, "sub")
