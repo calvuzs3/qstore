@@ -6,6 +6,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import net.calvuz.qstore.app.presentation.ui.common.QsTextButton as TextButton
+import net.calvuz.qstore.app.presentation.ui.theme.accentInk
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -174,10 +176,10 @@ fun CategoryListScreen(
                 Icon(
                     Icons.Default.Warning,
                     contentDescription = null,
-                    tint = if (articleCount > 0) 
-                        MaterialTheme.colorScheme.error 
-                    else 
-                        MaterialTheme.colorScheme.primary
+                    tint = if (articleCount > 0)
+                        MaterialTheme.colorScheme.error
+                    else
+                        MaterialTheme.colorScheme.accentInk
                 )
             },
             title = { Text("Elimina categoria") },

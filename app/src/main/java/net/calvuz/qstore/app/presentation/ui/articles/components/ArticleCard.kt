@@ -26,7 +26,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import net.calvuz.qstore.app.presentation.ui.common.QsTextButton as TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +44,8 @@ import coil.compose.AsyncImage
 import net.calvuz.qstore.app.domain.model.Article
 import net.calvuz.qstore.app.presentation.ui.theme.PlexMono
 import net.calvuz.qstore.app.presentation.ui.theme.registrationTicks
+import net.calvuz.qstore.app.presentation.ui.theme.accentInk
+import net.calvuz.qstore.app.presentation.ui.theme.accentInkAlt
 import net.calvuz.qstore.settings.domain.model.ArticleCardStyle
 import java.io.File
 
@@ -180,7 +182,7 @@ private fun ArticleCardFull(
                             text = it,
                             style = MaterialTheme.typography.labelMedium,
                             fontFamily = PlexMono,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.accentInk
                         )
                     }
 
@@ -301,7 +303,7 @@ private fun ArticleCardCompact(
                             text = it,
                             style = MaterialTheme.typography.labelMedium,
                             fontFamily = PlexMono,
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.accentInk
                         )
                     }
 
@@ -406,7 +408,7 @@ private fun ArticleCardMinimal(
                         text = it,
                         style = MaterialTheme.typography.labelMedium,
                         fontFamily = PlexMono,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.accentInk
                     )
                 }
 
@@ -489,12 +491,12 @@ private fun CategoryBadge(name: String) {
             Icons.Default.Category,
             contentDescription = null,
             modifier = Modifier.size(14.dp),
-            tint = MaterialTheme.colorScheme.primary
+            tint = MaterialTheme.colorScheme.accentInk
         )
         Text(
             text = name,
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.accentInk
         )
     }
 }

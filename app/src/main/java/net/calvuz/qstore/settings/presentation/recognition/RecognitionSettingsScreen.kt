@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import net.calvuz.qstore.app.presentation.ui.theme.accentInk
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -379,7 +380,7 @@ private fun SimilarityWeightsSection(
                 "%.3f".format(totalWeight),
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (totalWeight in 0.95..1.05) {
-                    MaterialTheme.colorScheme.primary
+                    MaterialTheme.colorScheme.accentInk
                 } else {
                     MaterialTheme.colorScheme.error
                 }
@@ -570,7 +571,7 @@ private fun SliderParameter(
             Text(
                 formatValue(value),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.accentInk
             )
         }
 
@@ -648,7 +649,7 @@ private fun SuccessCard(message: String) {
             Icon(
                 Icons.Default.CheckCircle,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
+                tint = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Text(
                 message,

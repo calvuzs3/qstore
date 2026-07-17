@@ -5,6 +5,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -112,3 +113,18 @@ fun QuickStoreTheme(
         content = content
     )
 }
+
+/**
+ * Inchiostro di brand (arancio/tertiary) per testo e icone che non siedono sopra un
+ * riempimento pieno — mai come colore corrente su pagina chiara. Regola d'inchiostro
+ * condivisa con QReport (vedi Color.kt e ../../QuickReport/design/design-system.md):
+ * l'arancio come inchiostro è ammesso solo su sfondo grafite (tema scuro); in tema chiaro
+ * quei punti tornano al testo normale (grafite/`onSurface`). I riempimenti pieni (pulsanti,
+ * chip, badge, mire d'angolo) non passano da qui — restano `colorScheme.primary`/`.tertiary`
+ * invariati in entrambi i temi.
+ */
+val ColorScheme.accentInk: Color
+    @Composable get() = if (isSystemInDarkTheme()) primary else onSurface
+
+val ColorScheme.accentInkAlt: Color
+    @Composable get() = if (isSystemInDarkTheme()) tertiary else onSurface

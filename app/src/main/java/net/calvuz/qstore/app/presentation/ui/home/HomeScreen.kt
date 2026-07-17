@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import net.calvuz.qstore.app.presentation.ui.common.QsOutlinedButton as OutlinedButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,6 +22,8 @@ import net.calvuz.qstore.app.domain.model.enum.MovementType
 import net.calvuz.qstore.app.presentation.ui.common.ErrorState
 import net.calvuz.qstore.app.presentation.ui.theme.PlexMono
 import net.calvuz.qstore.app.presentation.ui.theme.registrationTicks
+import net.calvuz.qstore.app.presentation.ui.theme.accentInk
+import net.calvuz.qstore.app.presentation.ui.theme.accentInkAlt
 
 /**
  * Home Screen - Dashboard principale
@@ -283,7 +286,7 @@ private fun QuickActionButton(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            Icon(icon, contentDescription = label)
+            Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.accentInk)
             Text(
                 label,
                 style = MaterialTheme.typography.labelSmall,
@@ -308,9 +311,17 @@ private fun StatsCard(stats: DashboardStats) {
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             // Esauriti è l'unico che diventa arancio, e solo se > 0 — la severità si legge
-            // per intensità dell'unico accento, non per un secondo colore semantico.
-            val outOfStockColor = if (stats.articlesOutOfStock > 0) {
+            // per intensità dell'unico accento, non per un secondo colore semantico. La mira
+            // (riempimento) resta arancio pieno; il testo (inchiostro) segue la regola
+            // d'inchiostro — arancio solo su sfondo grafite, altrimenti grafite/onSurface.
+            val outOfStock = stats.articlesOutOfStock > 0
+            val outOfStockTickColor = if (outOfStock) {
                 MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurface
+            }
+            val outOfStockTextColor = if (outOfStock) {
+                MaterialTheme.colorScheme.accentInk
             } else {
                 MaterialTheme.colorScheme.onSurface
             }
@@ -330,8 +341,8 @@ private fun StatsCard(stats: DashboardStats) {
             StatItem(
                 value = stats.articlesOutOfStock.toString(),
                 label = "Esauriti",
-                color = outOfStockColor,
-                tickColor = outOfStockColor,
+                color = outOfStockTextColor,
+                tickColor = outOfStockTickColor,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -434,9 +445,9 @@ private fun RecentMovementCard(movement: Movement) {
                 },
                 contentDescription = null,
                 tint = when (movement.type) {
-                    MovementType.IN -> MaterialTheme.colorScheme.primary
+                    MovementType.IN -> MaterialTheme.colorScheme.accentInk
                     MovementType.OUT -> MaterialTheme.colorScheme.error
-                    MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.tertiary
+                    MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.accentInkAlt
                     MovementType.TRANSFER -> MaterialTheme.colorScheme.secondary
                 }
             )
@@ -466,9 +477,9 @@ private fun RecentMovementCard(movement: Movement) {
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = when (movement.type) {
-                    MovementType.IN -> MaterialTheme.colorScheme.primary
+                    MovementType.IN -> MaterialTheme.colorScheme.accentInk
                     MovementType.OUT -> MaterialTheme.colorScheme.error
-                    MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.tertiary
+                    MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.accentInkAlt
                     MovementType.TRANSFER -> MaterialTheme.colorScheme.secondary
                 }
             )
