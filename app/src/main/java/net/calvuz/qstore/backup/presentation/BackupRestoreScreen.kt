@@ -11,6 +11,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import net.calvuz.qstore.app.presentation.ui.theme.accentInk
+import net.calvuz.qstore.app.presentation.ui.common.QsTextButton as TextButton
+import net.calvuz.qstore.app.presentation.ui.common.QsOutlinedButton as OutlinedButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -292,7 +295,7 @@ private fun CreateBackupSection(
                 Icon(
                     Icons.Default.Backup,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.accentInk
                 )
                 Text(
                     text = "Crea Nuovo Backup",
@@ -366,7 +369,7 @@ private fun ImportBackupSection(
                 Icon(
                     Icons.Default.FileOpen,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.accentInk
                 )
                 Text(
                     text = "Importa da File",

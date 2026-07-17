@@ -18,6 +18,8 @@ import net.calvuz.qstore.app.presentation.ui.common.EmptyState
 import net.calvuz.qstore.app.presentation.ui.common.ErrorState
 import net.calvuz.qstore.app.presentation.ui.theme.PlexMono
 import net.calvuz.qstore.app.presentation.ui.theme.registrationTicks
+import net.calvuz.qstore.app.presentation.ui.theme.accentInk
+import net.calvuz.qstore.app.presentation.ui.theme.accentInkAlt
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -219,10 +221,19 @@ private fun MovementCard(
     val movement = movementWithArticle.movement
     val article = movementWithArticle.article
 
+    // typeAccent: riempimento (mira d'angolo) — resta arancio pieno in entrambi i temi.
     val typeAccent = when (movement.type) {
         MovementType.IN -> MaterialTheme.colorScheme.primary
         MovementType.OUT -> MaterialTheme.colorScheme.error
         MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.tertiary
+        MovementType.TRANSFER -> MaterialTheme.colorScheme.secondary
+    }
+    // typeInk: colore testo/quantità — l'arancio come inchiostro segue la regola d'inchiostro
+    // (solo su sfondo grafite, vedi Theme.kt).
+    val typeInk = when (movement.type) {
+        MovementType.IN -> MaterialTheme.colorScheme.accentInk
+        MovementType.OUT -> MaterialTheme.colorScheme.error
+        MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.accentInkAlt
         MovementType.TRANSFER -> MaterialTheme.colorScheme.secondary
     }
 
@@ -293,7 +304,7 @@ private fun MovementCard(
                         MovementType.TRANSFER -> "Trasferimento"
                     },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = typeAccent
+                    color = typeInk
                 )
 
                 // Note (se presenti)
@@ -324,7 +335,7 @@ private fun MovementCard(
                     style = MaterialTheme.typography.titleLarge,
                     fontFamily = PlexMono,
                     fontWeight = FontWeight.Bold,
-                    color = typeAccent
+                    color = typeInk
                 )
 
                 if (article != null) {

@@ -43,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import net.calvuz.qstore.app.presentation.ui.theme.accentInk
 import net.calvuz.qstore.settings.domain.model.ArticleCardStyle
 import net.calvuz.qstore.settings.domain.model.getDescription
 import net.calvuz.qstore.settings.domain.model.getDisplayName
@@ -207,7 +208,7 @@ private fun StyleOptionCard(
     }
 
     val borderColor = if (isSelected) {
-        MaterialTheme.colorScheme.primary
+        MaterialTheme.colorScheme.accentInk
     } else {
         MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
     }
@@ -239,7 +240,7 @@ private fun StyleOptionCard(
                     contentDescription = null,
                     modifier = Modifier.size(32.dp),
                     tint = if (isSelected) {
-                        MaterialTheme.colorScheme.primary
+                        MaterialTheme.colorScheme.accentInk
                     } else {
                         MaterialTheme.colorScheme.onSurfaceVariant
                     }
@@ -253,7 +254,7 @@ private fun StyleOptionCard(
                         modifier = Modifier
                             .size(16.dp)
                             .align(Alignment.TopEnd),
-                        tint = MaterialTheme.colorScheme.primary
+                        tint = MaterialTheme.colorScheme.accentInk
                     )
                 }
             }
@@ -347,7 +348,7 @@ private fun ArticleCardPreview(
                     Text(
                         text = "Categoria",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.accentInk
                     )
                 }
 

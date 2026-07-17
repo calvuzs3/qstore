@@ -6,6 +6,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import net.calvuz.qstore.app.presentation.ui.theme.accentInk
+import net.calvuz.qstore.app.presentation.ui.common.QsTextButton as TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -167,7 +169,7 @@ fun LocationListScreen(
                     tint = if (blockReason != null)
                         MaterialTheme.colorScheme.error
                     else
-                        MaterialTheme.colorScheme.primary
+                        MaterialTheme.colorScheme.accentInk
                 )
             },
             title = { Text("Elimina magazzino") },

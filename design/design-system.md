@@ -15,6 +15,32 @@ e graphite `#333333`, nient'altro. Niente teal/verde/rosso come accento (il
 rosso resta solo per le azioni distruttive, vedi sotto). **Questa è l'opzione
 attualmente implementata nell'app** (vedi `Theme.kt`/`Type.kt`/`Color.kt`).
 
+**Aggiornamento — regola d'inchiostro e font Inter** (allineato a QReport, che ha
+adattato questa stessa direzione — vedi `../../QuickReport/design/design-system.md`,
+sezione "La regola d'inchiostro"): l'arancio come colore di testo/icona diretto su
+pagina chiara (eyebrow di sezione, icone di scorciatoia, valori numerici in
+evidenza, badge "on container") è stato sostituito da grafite —
+`MaterialTheme.colorScheme.accentInk`/`accentInkAlt` in `Theme.kt`, che restano
+arancio solo in tema scuro. I riempimenti pieni (pulsanti, chip, badge, mire
+d'angolo) non sono toccati, restano arancio in entrambi i temi — eccezione
+deliberata mantenuta per `onPrimary`/`onTertiary` in chiaro (restano bianco sui due
+ruoli a massima enfasi, stesso compromesso scelto per QReport). `TextButton`/
+`OutlinedButton` passano dal default M3 (`primary`) a `onSurface` tramite i wrapper
+`QsTextButton`/`QsOutlinedButton` (`app/presentation/ui/common/QsButtons.kt`),
+agganciati ovunque via import alias, zero modifiche ai call site — stesso pattern di
+`QrButtons.kt` in QReport. **Title/body/label ora su Inter** (Regular 400, SemiBold
+600, licenza SIL OFL) al posto di IBM Plex Sans, per lo stesso motivo già isolato in
+QReport: Plex Sans era bundlato come variabile ma senza istanziare l'asse "wght",
+quindi renderizzava tutto al peso di default. **Display/headline ora su Space
+Grotesk** (Regular 400, SemiBold 600, Bold 700, licenza SIL OFL, istanziati come
+statici dal variabile in `google/fonts` via `fonttools`/`woff2_decompress` — nessuna
+build statica ufficiale disponibile): il font di sistema (Roboto) provato come
+ripiego dopo lo scarto di Big Shoulders Display (troppo condensato) non si abbinava
+bene a Inter sul corpo — proporzioni/x-height diverse, il salto si sentiva. Space
+Grotesk è il pairing standard per Inter, coerente con l'estetica "nameplate
+industriale". Nessun peso ExtraBold statico disponibile per questo font, quindi
+`displayLarge`/`displayMedium` scendono da `ExtraBold` a `Bold` (vedi `Type.kt`).
+
 Con un solo accento disponibile, la severità (normale / attenzione / critico)
 si legge per **intensità dell'arancio** invece che per tinta diversa: striscia
 grigia neutra = normale, striscia arancio piena = attenzione (sotto scorta),

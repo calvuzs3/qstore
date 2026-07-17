@@ -27,6 +27,7 @@ import coil.compose.AsyncImage
 import net.calvuz.qstore.categories.domain.model.ArticleCategory
 import net.calvuz.qstore.app.domain.model.ArticleImage
 import net.calvuz.qstore.app.presentation.ui.common.PhotoCaptureDialog
+import net.calvuz.qstore.app.presentation.ui.theme.accentInk
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -156,7 +157,7 @@ private fun AddArticleContent(
         Text(
             text = "Informazioni Base",
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.accentInk
         )
 
         // Nome (obbligatorio)
@@ -194,7 +195,7 @@ private fun AddArticleContent(
         Text(
             text = "Classificazione",
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.accentInk
         )
 
         // Categoria con dropdown (da database)
@@ -260,7 +261,7 @@ private fun AddArticleContent(
         Text(
             text = "Unità e Gestione Scorte",
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.accentInk
         )
 
         // Unità di misura con dropdown
@@ -347,7 +348,7 @@ private fun AddArticleContent(
         Text(
             text = "Foto Articolo",
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.accentInk
         )
 
         Text(
@@ -371,7 +372,7 @@ private fun AddArticleContent(
         Text(
             text = "Codici Esterni",
             style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.primary
+            color = MaterialTheme.colorScheme.accentInk
         )
 
         Text(

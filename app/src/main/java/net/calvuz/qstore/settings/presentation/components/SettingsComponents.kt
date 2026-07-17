@@ -20,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import net.calvuz.qstore.app.presentation.ui.theme.accentInk
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,7 +89,7 @@ fun SettingsNavigationItem(
             imageVector = icon,
             contentDescription = null,
             modifier = Modifier.size(24.dp),
-            tint = MaterialTheme.colorScheme.primary
+            tint = MaterialTheme.colorScheme.accentInk
         )
 
         Column(
@@ -144,7 +145,7 @@ fun SettingsSwitchItem(
                 contentDescription = null,
                 modifier = Modifier.size(24.dp),
                 tint = if (enabled) {
-                    MaterialTheme.colorScheme.primary
+                    MaterialTheme.colorScheme.accentInk
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 }
@@ -250,7 +251,7 @@ fun SettingsSuccessCard(
             Icon(
                 imageVector = Icons.Default.CheckCircle,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
+                tint = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Text(
                 text = message,

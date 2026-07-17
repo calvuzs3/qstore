@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import net.calvuz.qstore.app.presentation.ui.common.QsTextButton as TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,6 +31,8 @@ import net.calvuz.qstore.app.domain.model.ArticleImage
 import net.calvuz.qstore.app.domain.model.Inventory
 import net.calvuz.qstore.app.domain.model.Movement
 import net.calvuz.qstore.app.domain.model.enum.MovementType
+import net.calvuz.qstore.app.presentation.ui.theme.accentInk
+import net.calvuz.qstore.app.presentation.ui.theme.accentInkAlt
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
@@ -296,7 +299,7 @@ private fun PhotoGallerySection(
                 Icon(
                     Icons.Default.Photo,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.accentInk
                 )
             }
 
@@ -473,7 +476,7 @@ private fun ExternalCodesCard(article: Article) {
                 Icon(
                     Icons.Default.QrCode,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.accentInk
                 )
                 Text(
                     text = "Codici Esterni",
@@ -628,9 +631,9 @@ private fun MovementCard(movement: Movement, unit: String) {
                         },
                         contentDescription = null,
                         tint = when (movement.type) {
-                            MovementType.IN -> MaterialTheme.colorScheme.primary
+                            MovementType.IN -> MaterialTheme.colorScheme.accentInk
                             MovementType.OUT -> MaterialTheme.colorScheme.error
-                            MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.tertiary
+                            MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.accentInkAlt
                             MovementType.TRANSFER -> MaterialTheme.colorScheme.secondary
                         }
                     )
@@ -665,9 +668,9 @@ private fun MovementCard(movement: Movement, unit: String) {
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = when (movement.type) {
-                    MovementType.IN -> MaterialTheme.colorScheme.primary
+                    MovementType.IN -> MaterialTheme.colorScheme.accentInk
                     MovementType.OUT -> MaterialTheme.colorScheme.error
-                    MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.tertiary
+                    MovementType.ADJUSTMENT -> MaterialTheme.colorScheme.accentInkAlt
                     MovementType.TRANSFER -> MaterialTheme.colorScheme.secondary
                 }
             )
