@@ -64,12 +64,17 @@ import androidx.core.net.toUri
  * - Link utili (privacy policy, licenze, contatti)
  * - Info tecniche
  */
+// Pagina pubblicata nel web-portfolio (repo separato ../../src/next/web-portfolio,
+// gemella di quella già esistente per QReport allo stesso path). Niente schermata in-app:
+// la policy vera è quella già pubblicata sullo Store, non ha senso duplicarne il contenuto
+// qui dentro con il rischio che i due finiscano disallineati.
+private const val PRIVACY_POLICY_URL = "https://www.calvuz.net/work/quickstore/privacy-policy"
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToLicenses: (() -> Unit)? = null,
-    onNavigateToPrivacyPolicy: (() -> Unit)? = null
+    onNavigateToLicenses: () -> Unit
 ) {
     val context = LocalContext.current
     val appInfo = remember { getAppInfo(context) }
@@ -136,7 +141,7 @@ fun AboutScreen(
                         title = "Contattaci",
                         subtitle = "calvuzs3@gmail.com",
                         onClick = {
-                            openEmail(context, "calvuzs3@gmail.com", "QStore Feedback")
+                            openEmail(context, "calvuzs3@gmail.com", "QuickStore Feedback")
                         }
                     )
 
@@ -159,8 +164,7 @@ fun AboutScreen(
                         title = "Privacy Policy",
                         subtitle = "Come gestiamo i tuoi dati",
                         onClick = {
-                            onNavigateToPrivacyPolicy?.invoke()
-                                ?: openUrl(context, "https://www.calvuz.net/qstore/privacy")
+                            openUrl(context, PRIVACY_POLICY_URL)
                         }
                     )
 
@@ -168,9 +172,7 @@ fun AboutScreen(
                         icon = Icons.Default.Gavel,
                         title = "Licenze Open Source",
                         subtitle = "Librerie di terze parti utilizzate",
-                        onClick = {
-                            onNavigateToLicenses?.invoke()
-                        }
+                        onClick = onNavigateToLicenses
                     )
                 }
             }
@@ -266,7 +268,7 @@ private fun AppHeaderCard(appInfo: AppInfo) {
             }
 
             Text(
-                text = "QStore",
+                text = "QuickStore",
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
@@ -365,11 +367,13 @@ private fun getAppInfo(context: Context): AppInfo {
             versionCode = versionCode
         )
     } catch (_: PackageManager.NameNotFoundException) {
-        // Fallback con valori hardcoded
+        // Fallback con valori hardcoded — non dovrebbe mai scattare (PackageManager che
+        // interroga il proprio pacchetto), tenuto comunque allineato ai valori reali correnti
+        // invece che a uno snapshot vecchio.
         AppInfo(
-            packageName = "net.calvuz.qstore",
-            versionName = "1.2.5",
-            versionCode = 2
+            packageName = "net.calvuz.quickstore",
+            versionName = "1.5.2",
+            versionCode = 5
         )
     }
 }

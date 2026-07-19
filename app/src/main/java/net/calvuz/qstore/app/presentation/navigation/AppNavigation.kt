@@ -25,6 +25,7 @@ import net.calvuz.qstore.settings.presentation.recognition.RecognitionSettingsSc
 import net.calvuz.qstore.export.presentation.ui.export.ExportScreen
 import net.calvuz.qstore.settings.presentation.SettingsScreen
 import net.calvuz.qstore.settings.presentation.about.AboutScreen
+import net.calvuz.qstore.settings.presentation.about.LicensesScreen
 import net.calvuz.qstore.settings.presentation.display.DisplaySettingsScreen
 import net.calvuz.qstore.settings.presentation.server.ServerSettingsScreen
 
@@ -82,6 +83,7 @@ sealed class Screen(val route: String) {
     // Impostazioni
     data object Settings : Screen("settings")
     data object AboutSettings: Screen("settings/about")
+    data object LicensesSettings: Screen("settings/about/licenses")
     data object DisplaySettings : Screen("settings/display")
     data object RecognitionSettings : Screen("settings/recognition")
     data object ServerSettings : Screen("settings/server")
@@ -391,7 +393,17 @@ fun AppNavigation(
             AboutScreen(
                 onNavigateBack = {
                     navController.popBackStack()
+                },
+                onNavigateToLicenses = {
+                    navController.navigate(Screen.LicensesSettings.route)
                 }
+            )
+        }
+
+        // ========== LICENSES SCREEN ==========
+        composable(Screen.LicensesSettings.route) {
+            LicensesScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 
