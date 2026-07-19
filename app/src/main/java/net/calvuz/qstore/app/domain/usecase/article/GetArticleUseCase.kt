@@ -111,4 +111,19 @@ class GetArticleUseCase @Inject constructor(
         require(articleUuid.isNotBlank()) { "UUID non valido" }
         return articleRepository.observeInventory(articleUuid)
     }
+
+    /**
+     * Recupera gli ultimi articoli creati, più recenti prima.
+     */
+    suspend fun getRecentlyCreated(limit: Int = 5): Result<List<Article>> {
+        return try {
+            if (limit <= 0) {
+                return Result.failure(IllegalArgumentException("Limit deve essere > 0"))
+            }
+
+            articleRepository.getRecentlyCreated(limit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

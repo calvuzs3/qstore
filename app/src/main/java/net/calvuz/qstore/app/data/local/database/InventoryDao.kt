@@ -14,6 +14,19 @@ data class InventoryTotalProjection(
 )
 
 /**
+ * Proiezione aggregata per singola ubicazione — usata dalla dashboard Home per le
+ * statistiche "articoli per magazzino".
+ */
+data class LocationStatsProjection(
+    @ColumnInfo(name = "location_uuid")
+    val locationUuid: String,
+    @ColumnInfo(name = "article_count")
+    val articleCount: Int,
+    @ColumnInfo(name = "total_quantity")
+    val totalQuantity: Double
+)
+
+/**
  * DAO per operazioni sulla tabella inventory (chiave composta article_uuid + location_uuid)
  */
 @Dao
@@ -102,4 +115,19 @@ interface InventoryDao {
     /** Giacenza di ogni articolo in una specifica ubicazione — usata per filtrare/decorare la lista articoli. */
     @Query("SELECT * FROM inventory WHERE location_uuid = :locationUuid")
     fun observeByLocation(locationUuid: String): Flow<List<InventoryEntity>>
+
+    /**
+     * Statistiche per magazzino: numero di articoli con giacenza (> 0, non cancellati) e
+     * quantità totale, raggruppate per ubicazione — usata dalla dashboard Home.
+     */
+    @Query("""
+        SELECT i.location_uuid AS location_uuid,
+               COUNT(DISTINCT i.article_uuid) AS article_count,
+               SUM(i.current_quantity) AS total_quantity
+        FROM inventory i
+        INNER JOIN articles a ON a.uuid = i.article_uuid
+        WHERE i.current_quantity > 0 AND a.is_deleted = 0
+        GROUP BY i.location_uuid
+    """)
+    suspend fun getStatsByLocation(): List<LocationStatsProjection>
 }

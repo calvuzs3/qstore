@@ -72,4 +72,9 @@ interface ArticleRepository {
      * Ottiene il conteggio totale degli articoli
      */
     suspend fun getArticlesCount(): Result<Int>
+
+    /**
+     * Recupera gli ultimi articoli creati, più recenti prima.
+     */
+    suspend fun getRecentlyCreated(limit: Int): Result<List<Article>>
 }

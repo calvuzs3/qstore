@@ -2,6 +2,7 @@ package net.calvuz.qstore.app.domain.repository
 
 import kotlinx.coroutines.flow.Flow
 import net.calvuz.qstore.app.domain.model.Location
+import net.calvuz.qstore.app.domain.model.LocationStats
 
 /**
  * Repository interface per la gestione dei magazzini/ubicazioni.
@@ -33,4 +34,10 @@ interface LocationRepository {
     suspend fun canDelete(uuid: String): Result<Boolean>
 
     suspend fun hasStock(uuid: String): Result<Boolean>
+
+    /**
+     * Statistiche di giacenza (numero articoli, quantità totale) per ogni magazzino —
+     * include anche le ubicazioni senza alcuna giacenza (0/0). Usata dalla dashboard Home.
+     */
+    suspend fun getLocationStats(): Result<List<LocationStats>>
 }

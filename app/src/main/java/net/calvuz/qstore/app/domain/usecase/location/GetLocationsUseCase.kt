@@ -2,6 +2,7 @@ package net.calvuz.qstore.app.domain.usecase.location
 
 import kotlinx.coroutines.flow.Flow
 import net.calvuz.qstore.app.domain.model.Location
+import net.calvuz.qstore.app.domain.model.LocationStats
 import net.calvuz.qstore.app.domain.repository.LocationRepository
 import javax.inject.Inject
 
@@ -21,5 +22,12 @@ class GetLocationsUseCase @Inject constructor(
 
     suspend fun getByUuid(uuid: String): Result<Location?> {
         return locationRepository.getByUuid(uuid)
+    }
+
+    /**
+     * Statistiche di giacenza (numero articoli, quantità totale) per ogni magazzino.
+     */
+    suspend fun getStats(): Result<List<LocationStats>> {
+        return locationRepository.getLocationStats()
     }
 }

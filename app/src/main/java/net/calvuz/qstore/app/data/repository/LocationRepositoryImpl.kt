@@ -6,6 +6,7 @@ import net.calvuz.qstore.app.data.local.database.InventoryDao
 import net.calvuz.qstore.app.data.local.database.LocationDao
 import net.calvuz.qstore.app.data.mapper.LocationMapper
 import net.calvuz.qstore.app.domain.model.Location
+import net.calvuz.qstore.app.domain.model.LocationStats
 import net.calvuz.qstore.app.domain.repository.LocationRepository
 import javax.inject.Inject
 
@@ -106,6 +107,26 @@ class LocationRepositoryImpl @Inject constructor(
     override suspend fun hasStock(uuid: String): Result<Boolean> {
         return try {
             Result.success(inventoryDao.hasStock(uuid))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getLocationStats(): Result<List<LocationStats>> {
+        return try {
+            val locations = locationDao.getAll()
+            val statsByLocation = inventoryDao.getStatsByLocation().associateBy { it.locationUuid }
+
+            val stats = locations.map { location ->
+                val entry = statsByLocation[location.uuid]
+                LocationStats(
+                    locationUuid = location.uuid,
+                    locationName = location.name,
+                    articleCount = entry?.articleCount ?: 0,
+                    totalQuantity = entry?.totalQuantity ?: 0.0
+                )
+            }
+            Result.success(stats)
         } catch (e: Exception) {
             Result.failure(e)
         }
