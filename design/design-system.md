@@ -41,6 +41,26 @@ Grotesk è il pairing standard per Inter, coerente con l'estetica "nameplate
 industriale". Nessun peso ExtraBold statico disponibile per questo font, quindi
 `displayLarge`/`displayMedium` scendono da `ExtraBold` a `Bold` (vedi `Type.kt`).
 
+**Rinfrescata 2026-07 — Archivo e JetBrains Mono al posto di Space Grotesk e IBM
+Plex Mono.** Richiesta esplicita dell'utente ("non mi piacciono"): Space Grotesk e
+Plex Mono sono tra le scelte più ricorrenti nel design generato via AI, poco
+caratterizzate per uno strumento professionale. Confronto fatto con un artifact di
+anteprima (token, componenti Home/Articoli con dati reali, toggle chiaro/scuro) più
+un secondo giro con un selettore dal vivo per confrontare due alternative per ruolo
+in tutta la pagina prima di scegliere. Palette e Inter per title/body/label
+invariati — cambia solo il pairing display/dati.
+- **Display/headline → Archivo** (Regular 400, SemiBold 600, Bold 700, licenza SIL
+  OFL, stesso percorso `fonttools`-free già usato per Space Grotesk — vedi memoria
+  di progetto "static Google Fonts"): grottesco robusto, tiene meglio il peso alle
+  taglie grandi (numeri statistica) senza il tono trendy-SaaS di Space Grotesk.
+  Alternativa scartata: Barlow Semi Condensed (nato per segnaletica stradale/
+  industriale, coerente con la metafora "targhetta" ma meno leggibile su titoli
+  lunghi per via della condensazione).
+- **Dati (codici/quantità/timestamp) → JetBrains Mono** (Regular 400, Medium 500,
+  licenza SIL OFL, via `@fontsource/jetbrains-mono`): pensato per leggibilità di
+  codici a taglie piccole, pairing consolidato con Inter. Alternativa scartata:
+  Roboto Mono (più neutro/di sistema, meno carattere).
+
 Con un solo accento disponibile, la severità (normale / attenzione / critico)
 si legge per **intensità dell'arancio** invece che per tinta diversa: striscia
 grigia neutra = normale, striscia arancio piena = attenzione (sotto scorta),

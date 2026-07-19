@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import net.calvuz.qstore.app.domain.model.Article
-import net.calvuz.qstore.app.presentation.ui.theme.PlexMono
+import net.calvuz.qstore.app.presentation.ui.theme.JetBrainsMono
 import net.calvuz.qstore.app.presentation.ui.theme.registrationTicks
 import net.calvuz.qstore.app.presentation.ui.theme.accentInk
 import net.calvuz.qstore.settings.domain.model.ArticleCardStyle
@@ -183,7 +183,7 @@ private fun ArticleCardFull(
                         Text(
                             text = it,
                             style = MaterialTheme.typography.labelMedium,
-                            fontFamily = PlexMono,
+                            fontFamily = JetBrainsMono,
                             color = MaterialTheme.colorScheme.accentInk
                         )
                     }
@@ -301,7 +301,7 @@ private fun ArticleCardCompact(
                         Text(
                             text = it,
                             style = MaterialTheme.typography.labelMedium,
-                            fontFamily = PlexMono,
+                            fontFamily = JetBrainsMono,
                             color = MaterialTheme.colorScheme.accentInk
                         )
                     }
@@ -401,7 +401,7 @@ private fun ArticleCardMinimal(
                     Text(
                         text = it,
                         style = MaterialTheme.typography.labelMedium,
-                        fontFamily = PlexMono,
+                        fontFamily = JetBrainsMono,
                         color = MaterialTheme.colorScheme.accentInk
                     )
                 }

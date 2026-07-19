@@ -13,9 +13,13 @@ import net.calvuz.qstore.R
 // troppo condensato/stretto per restare leggibile nei titoli reali (codici articolo, storico
 // movimenti). Roboto di sistema come ripiego per display/headline è stato a sua volta scartato:
 // abbinato a Inter sul corpo, il salto tra le due famiglie (x-height/proporzioni diverse) si
-// sentiva. Display/headline sono ora su Space Grotesk, grottesco geometrico pensato apposta
-// per fare da titolo sopra un corpo Inter (pairing standard tra le due famiglie), coerente con
-// l'estetica "nameplate industriale" del sistema.
+// sentiva. Display/headline erano poi passati a Space Grotesk — scartato a sua volta durante
+// la rinfrescata 2026-07: troppo simile ai default "sicuri" del design generato via AI (lo
+// stesso motivo per cui è stato scartato anche IBM Plex Mono per i dati, vedi sotto), poco
+// caratterizzato per uno strumento professionale. Display/headline sono ora su **Archivo**,
+// grottesco robusto con vero peso alle taglie grandi (i numeri statistica tipo "27" reggono
+// meglio del Bold di Space Grotesk), scelto dopo un confronto diretto in un artifact di
+// anteprima (vedi `design/design-system.md`, sezione "Rinfrescata 2026-07").
 //
 // Title/body/label su Inter invece di IBM Plex Sans (allineato a QReport, stessa direzione
 // di design — vedi ../../QuickReport/design/design-system.md): Plex Sans era bundlato come
@@ -29,21 +33,23 @@ val Inter = FontFamily(
     Font(R.font.inter_semibold, FontWeight.SemiBold)
 )
 
-// Bundlato come tre pesi statici reali (Regular 400, SemiBold 600, Bold 700, licenza SIL OFL) —
-// Space Grotesk non ha un peso ExtraBold/Black statico, quindi display/headline restano al
-// massimo su Bold (vedi sotto: displayLarge/Medium usavano FontWeight.ExtraBold su Roboto, qui
-// scendono a Bold per lo stesso motivo per cui Inter non supera SemiBold sopra).
-val SpaceGrotesk = FontFamily(
-    Font(R.font.space_grotesk_regular, FontWeight.Normal),
-    Font(R.font.space_grotesk_semibold, FontWeight.SemiBold),
-    Font(R.font.space_grotesk_bold, FontWeight.Bold)
+// Bundlato come tre pesi statici reali (Regular 400, SemiBold 600, Bold 700, licenza SIL OFL,
+// via @fontsource/archivo — build variabile su google/fonts, istanziata con lo stesso percorso
+// fontsource+jsdelivr+woff2_decompress già usato per Space Grotesk, vedi memoria di progetto).
+// Come per Space Grotesk, nessun peso Black statico scaricato: display/headline restano su Bold.
+val Archivo = FontFamily(
+    Font(R.font.archivo_regular, FontWeight.Normal),
+    Font(R.font.archivo_semibold, FontWeight.SemiBold),
+    Font(R.font.archivo_bold, FontWeight.Bold)
 )
 
 // Nessuno slot "mono" nativo in Typography M3: esposto a parte, usato esplicitamente nei
 // punti che mostrano codici articolo/quantità/timestamp (es. ArticleCard, MovementCard).
-val PlexMono = FontFamily(
-    Font(R.font.ibm_plex_mono_regular, FontWeight.Normal),
-    Font(R.font.ibm_plex_mono_medium, FontWeight.Medium)
+// JetBrains Mono al posto di IBM Plex Mono dalla rinfrescata 2026-07 (vedi commento sopra) —
+// pensato per leggibilità di codici a taglie piccole, stesso pairing con Inter già in uso.
+val JetBrainsMono = FontFamily(
+    Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
+    Font(R.font.jetbrains_mono_medium, FontWeight.Medium)
 )
 
 /**
@@ -51,42 +57,42 @@ val PlexMono = FontFamily(
  */
 val Typography = Typography(
     displayLarge = TextStyle(
-        fontFamily = SpaceGrotesk,
+        fontFamily = Archivo,
         fontWeight = FontWeight.Bold,
         fontSize = 57.sp,
         lineHeight = 64.sp,
         letterSpacing = (-0.25).sp
     ),
     displayMedium = TextStyle(
-        fontFamily = SpaceGrotesk,
+        fontFamily = Archivo,
         fontWeight = FontWeight.Bold,
         fontSize = 45.sp,
         lineHeight = 52.sp,
         letterSpacing = 0.sp
     ),
     displaySmall = TextStyle(
-        fontFamily = SpaceGrotesk,
+        fontFamily = Archivo,
         fontWeight = FontWeight.Bold,
         fontSize = 36.sp,
         lineHeight = 44.sp,
         letterSpacing = 0.sp
     ),
     headlineLarge = TextStyle(
-        fontFamily = SpaceGrotesk,
+        fontFamily = Archivo,
         fontWeight = FontWeight.Bold,
         fontSize = 32.sp,
         lineHeight = 40.sp,
         letterSpacing = 0.sp
     ),
     headlineMedium = TextStyle(
-        fontFamily = SpaceGrotesk,
+        fontFamily = Archivo,
         fontWeight = FontWeight.Bold,
         fontSize = 28.sp,
         lineHeight = 36.sp,
         letterSpacing = 0.sp
     ),
     headlineSmall = TextStyle(
-        fontFamily = SpaceGrotesk,
+        fontFamily = Archivo,
         fontWeight = FontWeight.Bold,
         fontSize = 24.sp,
         lineHeight = 32.sp,

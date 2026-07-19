@@ -16,7 +16,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import net.calvuz.qstore.app.domain.model.enum.MovementType
 import net.calvuz.qstore.app.presentation.ui.common.EmptyState
 import net.calvuz.qstore.app.presentation.ui.common.ErrorState
-import net.calvuz.qstore.app.presentation.ui.theme.PlexMono
+import net.calvuz.qstore.app.presentation.ui.theme.JetBrainsMono
 import net.calvuz.qstore.app.presentation.ui.theme.registrationTicks
 import net.calvuz.qstore.app.presentation.ui.theme.accentInk
 import net.calvuz.qstore.app.presentation.ui.theme.accentInkAlt
@@ -320,7 +320,7 @@ private fun MovementCard(
                 Text(
                     text = formatTimestamp(movement.createdAt),
                     style = MaterialTheme.typography.bodySmall,
-                    fontFamily = PlexMono,
+                    fontFamily = JetBrainsMono,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -333,7 +333,7 @@ private fun MovementCard(
                 Text(
                     text = "${if (movement.toLocationUuid != null) "+" else "-"}${movement.quantity}",
                     style = MaterialTheme.typography.titleLarge,
-                    fontFamily = PlexMono,
+                    fontFamily = JetBrainsMono,
                     fontWeight = FontWeight.Bold,
                     color = typeInk
                 )
