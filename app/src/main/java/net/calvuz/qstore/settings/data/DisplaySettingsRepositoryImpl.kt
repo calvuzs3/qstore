@@ -40,6 +40,7 @@ class DisplaySettingsRepositoryImpl @Inject constructor(
         val ARTICLE_CARD_STYLE = stringPreferencesKey("article_card_style")
         val SHOW_STOCK_INDICATORS = booleanPreferencesKey("show_stock_indicators")
         val SHOW_ARTICLE_IMAGES = booleanPreferencesKey("show_article_images")
+        val SHOW_ARTICLE_ACTIONS = booleanPreferencesKey("show_article_actions")
         val GRID_COLUMNS = intPreferencesKey("grid_columns")
         val SHOW_DASHBOARD_STATS = booleanPreferencesKey("show_dashboard_stats")
         val SHOW_RECENT_MOVEMENTS = booleanPreferencesKey("show_recent_movements")
@@ -56,6 +57,7 @@ class DisplaySettingsRepositoryImpl @Inject constructor(
                 ),
                 showStockIndicators = preferences[PreferenceKeys.SHOW_STOCK_INDICATORS] ?: true,
                 showArticleImages = preferences[PreferenceKeys.SHOW_ARTICLE_IMAGES] ?: true,
+                showArticleActions = preferences[PreferenceKeys.SHOW_ARTICLE_ACTIONS] ?: true,
                 gridColumns = preferences[PreferenceKeys.GRID_COLUMNS] ?: 1,
                 showDashboardStats = preferences[PreferenceKeys.SHOW_DASHBOARD_STATS] ?: true,
                 showRecentMovements = preferences[PreferenceKeys.SHOW_RECENT_MOVEMENTS] ?: true,
@@ -69,6 +71,7 @@ class DisplaySettingsRepositoryImpl @Inject constructor(
             preferences[PreferenceKeys.ARTICLE_CARD_STYLE] = settings.articleCardStyle.name
             preferences[PreferenceKeys.SHOW_STOCK_INDICATORS] = settings.showStockIndicators
             preferences[PreferenceKeys.SHOW_ARTICLE_IMAGES] = settings.showArticleImages
+            preferences[PreferenceKeys.SHOW_ARTICLE_ACTIONS] = settings.showArticleActions
             preferences[PreferenceKeys.GRID_COLUMNS] = settings.gridColumns
             preferences[PreferenceKeys.SHOW_DASHBOARD_STATS] = settings.showDashboardStats
             preferences[PreferenceKeys.SHOW_RECENT_MOVEMENTS] = settings.showRecentMovements
@@ -116,6 +119,18 @@ class DisplaySettingsRepositoryImpl @Inject constructor(
     override suspend fun setShowArticleImages(show: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferenceKeys.SHOW_ARTICLE_IMAGES] = show
+        }
+    }
+
+    override fun getShowArticleActions(): Flow<Boolean> {
+        return dataStore.data.map { preferences ->
+            preferences[PreferenceKeys.SHOW_ARTICLE_ACTIONS] ?: true
+        }
+    }
+
+    override suspend fun setShowArticleActions(show: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferenceKeys.SHOW_ARTICLE_ACTIONS] = show
         }
     }
 

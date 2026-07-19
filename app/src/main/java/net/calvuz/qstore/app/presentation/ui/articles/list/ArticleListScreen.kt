@@ -255,6 +255,7 @@ fun ArticleListScreen(
                                     cardStyle = displaySettings.articleCardStyle,
                                     showImage = displaySettings.showArticleImages,
                                     showStockIndicator = displaySettings.showStockIndicators,
+                                    showActions = displaySettings.showArticleActions,
                                     quantityLabel = articleWithStock.quantity?.let { "$it ${article.unitOfMeasure}" },
                                 )
                             }

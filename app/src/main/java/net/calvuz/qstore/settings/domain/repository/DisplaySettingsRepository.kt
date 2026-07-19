@@ -63,6 +63,16 @@ interface DisplaySettingsRepository {
     suspend fun setShowArticleImages(show: Boolean)
 
     /**
+     * Osserva se mostrare i pulsanti di azione nelle card articoli.
+     */
+    fun getShowArticleActions(): Flow<Boolean>
+
+    /**
+     * Aggiorna la visibilità dei pulsanti di azione nelle card articoli.
+     */
+    suspend fun setShowArticleActions(show: Boolean)
+
+    /**
      * Aggiorna la visibilità della sezione statistiche nella Home.
      */
     suspend fun setShowDashboardStats(show: Boolean)

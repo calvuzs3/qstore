@@ -27,6 +27,12 @@ data class DisplaySettings(
     val showArticleImages: Boolean = true,
 
     /**
+     * Mostra i pulsanti di azione (es. Elimina) nelle card articoli della lista.
+     * Se false, la card resta cliccabile per aprire il dettaglio ma senza azioni rapide.
+     */
+    val showArticleActions: Boolean = true,
+
+    /**
      * Numero di colonne nella griglia articoli (se si usa grid layout).
      * Valori supportati: 1 (lista), 2, 3
      * Nota: per ora usiamo sempre lista, questo è per future implementazioni.

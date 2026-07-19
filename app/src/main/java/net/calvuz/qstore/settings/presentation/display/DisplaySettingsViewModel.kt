@@ -73,6 +73,19 @@ class DisplaySettingsViewModel @Inject constructor(
     }
 
     /**
+     * Aggiorna la visibilità dei pulsanti di azione nelle card articoli.
+     */
+    fun setShowArticleActions(show: Boolean) {
+        viewModelScope.launch {
+            try {
+                settingsRepository.setShowArticleActions(show)
+            } catch (e: Exception) {
+                showError("Errore: ${e.message}")
+            }
+        }
+    }
+
+    /**
      * Aggiorna la visibilità della sezione statistiche nella Home.
      */
     fun setShowDashboardStats(show: Boolean) {
