@@ -53,8 +53,20 @@ class ArticleListViewModel @Inject constructor(
     private val _sortOrder = MutableStateFlow(ArticleSortOrder.RECENT_UPDATED_FIRST)
     val sortOrder: StateFlow<ArticleSortOrder> = _sortOrder.asStateFlow()
 
-    private val _uiState = MutableStateFlow<ArticleListUiState>(ArticleListUiState.Loading)
-    val uiState: StateFlow<ArticleListUiState> = _uiState.asStateFlow()
+    // Incrementato da retry() per far ripartire l'observe dopo un errore — la lista si
+    // aggiorna già da sola ad ogni emissione del DAO, questo serve solo a recuperare da un
+    // errore che ha terminato il Flow (es. eccezione dal DB), non per un refresh manuale.
+    private val retryTrigger = MutableStateFlow(0)
+
+    val uiState: StateFlow<ArticleListUiState> = retryTrigger
+        .flatMapLatest { getArticleUseCase.observeAll() }
+        .map<List<Article>, ArticleListUiState> { ArticleListUiState.Success }
+        .catch { e -> emit(ArticleListUiState.Error(e.message ?: "Errore nel caricamento")) }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = ArticleListUiState.Loading
+        )
 
     val displaySettings: StateFlow<DisplaySettings> = getDisplaySettingsUseCase()
         .stateIn(
@@ -114,29 +126,6 @@ class ArticleListViewModel @Inject constructor(
         initialValue = emptyList()
     )
 
-    init {
-        loadArticles()
-    }
-
-    /**
-     * Carica articoli
-     */
-    private fun loadArticles() {
-            viewModelScope.launch {
-                _uiState.value = ArticleListUiState.Loading
-
-                getArticleUseCase.observeAll()
-                    .catch { e ->
-                        _uiState.value = ArticleListUiState.Error(
-                            e.message ?: "Errore nel caricamento"
-                        )
-                    }
-                    .collect {
-                        _uiState.value = ArticleListUiState.Success
-                    }
-            }
-    }
-
     /**
      * Aggiorna search query
      */
@@ -175,6 +164,9 @@ class ArticleListViewModel @Inject constructor(
         }
     }
 
+    private val _snackbarMessage = MutableSharedFlow<String>()
+    val snackbarMessage: SharedFlow<String> = _snackbarMessage.asSharedFlow()
+
     /**
      * Elimina articolo
      */
@@ -182,18 +174,17 @@ class ArticleListViewModel @Inject constructor(
         viewModelScope.launch {
             deleteArticleUseCase(articleUuid)
                 .onFailure { error ->
-                    _uiState.value = ArticleListUiState.Error(
-                        error.message ?: "Errore nell'eliminazione"
-                    )
+                    _snackbarMessage.emit(error.message ?: "Errore nell'eliminazione")
                 }
         }
     }
 
     /**
-     * Refresh lista
+     * Ritenta l'observe dopo un errore (es. eccezione dal DB che ha terminato il Flow).
+     * Non serve per un refresh manuale: la lista è già reattiva e si aggiorna da sola.
      */
-    fun refresh() {
-        loadArticles()
+    fun retry() {
+        retryTrigger.value += 1
     }
 
     /**

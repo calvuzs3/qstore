@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.collectLatest
 import net.calvuz.qstore.app.domain.model.Location
 import net.calvuz.qstore.categories.domain.model.ArticleCategory
 import net.calvuz.qstore.app.presentation.ui.articles.components.ArticleCard
@@ -52,6 +53,14 @@ fun ArticleListScreen(
     val activeLocation by viewModel.activeLocation.collectAsStateWithLifecycle()
     val locations by viewModel.locations.collectAsStateWithLifecycle()
 
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        viewModel.snackbarMessage.collectLatest { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+
     // Menu states
     var showCategoryMenu by remember { mutableStateOf(false) }
     var showSortMenu by remember { mutableStateOf(false) }
@@ -77,26 +86,6 @@ fun ArticleListScreen(
                     }
                 },
                 actions = {
-                    // Refresh button
-                    IconButton(onClick = { viewModel.refresh() }) {
-                        Icon(Icons.Default.Refresh, "Aggiorna")
-                    }
-
-                    // Location filter button
-                    Box {
-                        IconButton(onClick = { showLocationMenu = true }) {
-                            Icon(Icons.Default.Warehouse, "Filtra per magazzino")
-                        }
-
-                        LocationFilterMenu(
-                            expanded = showLocationMenu,
-                            locations = locations,
-                            selectedLocationUuid = activeLocation?.uuid,
-                            onLocationSelected = viewModel::selectLocation,
-                            onDismiss = { showLocationMenu = false }
-                        )
-                    }
-
                     // Category filter button
                     Box {
                         IconButton(onClick = { showCategoryMenu = true }) {
@@ -126,7 +115,8 @@ fun ArticleListScreen(
                         )
                     }
 
-                    // Options menu
+                    // Options menu — include la scelta del magazzino, spostata qui per
+                    // alleggerire la barra
                     Box {
                         IconButton(onClick = { showOptionsMenu = true }) {
                             Icon(Icons.Default.MoreVert, "Menu")
@@ -136,6 +126,16 @@ fun ArticleListScreen(
                             expanded = showOptionsMenu,
                             onDismissRequest = { showOptionsMenu = false }
                         ) {
+                            DropdownMenuItem(
+                                text = { Text("Magazzino: ${activeLocation?.name ?: "Tutti"}") },
+                                onClick = {
+                                    showOptionsMenu = false
+                                    showLocationMenu = true
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Warehouse, contentDescription = null)
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("Impostazioni") },
                                 onClick = {
@@ -147,6 +147,14 @@ fun ArticleListScreen(
                                 }
                             )
                         }
+
+                        LocationFilterMenu(
+                            expanded = showLocationMenu,
+                            locations = locations,
+                            selectedLocationUuid = activeLocation?.uuid,
+                            onLocationSelected = viewModel::selectLocation,
+                            onDismiss = { showLocationMenu = false }
+                        )
                     }
                 }
             )
@@ -159,7 +167,8 @@ fun ArticleListScreen(
             ) {
                 Icon(Icons.Default.Add, "Aggiungi articolo")
             }
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -212,7 +221,7 @@ fun ArticleListScreen(
                 is ArticleListUiState.Error -> {
                     ErrorState(
                         message = (uiState as ArticleListUiState.Error).message,
-                        onRetry = { viewModel.refresh() },
+                        onRetry = { viewModel.retry() },
                         modifier = Modifier.fillMaxSize()
                     )
                 }
