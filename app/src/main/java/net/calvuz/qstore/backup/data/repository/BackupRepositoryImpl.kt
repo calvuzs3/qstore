@@ -3,6 +3,7 @@ package net.calvuz.qstore.backup.data.repository
 import android.content.Context
 import android.net.Uri
 import android.os.Build
+import androidx.room.withTransaction
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
@@ -326,64 +327,65 @@ class BackupRepositoryImpl @Inject constructor(
         val recognitionSettings = serializer.deserializeRecognitionSettings(zipContent.recognitionSettingsJson)
         
         try {
-            // 8. Svuota il database (in ordine FK)
-            progressCallback("Pulizia database...", 0.40f)
-            database.runInTransaction {
-                // L'ordine è importante per le FK
-                // Nota: con CASCADE le FK si occupano delle dipendenze,
-                // ma per sicurezza cancelliamo in ordine
-            }
-            
-            // Usa query dirette per svuotare
-            clearAllTables()
-
-            // 9. Elimina tutte le immagini esistenti
-            progressCallback("Pulizia immagini...", 0.45f)
+            // 8. Elimina tutte le immagini esistenti (I/O su file, non transazionale — best
+            // effort, coerente con "clearAllTables() + reinsert" che segue subito dopo).
+            progressCallback("Pulizia immagini...", 0.40f)
             clearAllImages()
 
-            // clearAllTables() svuota anche `locations` — il formato di backup non porta
-            // ancora le ubicazioni (TODO in BackupSerializer), quindi va ricreata subito
-            // l'ubicazione di default, altrimenti inventario/movimenti non hanno dove
-            // essere assegnati.
-            val now = System.currentTimeMillis()
             val defaultLocationUuid = java.util.UUID.randomUUID().toString()
-            locationDao.insert(
-                LocationEntity(
-                    uuid = defaultLocationUuid,
-                    name = "Magazzino principale",
-                    notes = "",
-                    createdAt = now,
-                    updatedAt = now
+
+            // 9-10. Svuota e ripopola il database in un'unica transazione (room-ktx
+            // withTransaction, supporta le suspend fun dei DAO): se un insert fallisce a
+            // metà — es. un backup corrotto con un riferimento a categoria inesistente —
+            // l'intero ripristino torna allo stato precedente invece di lasciare il DB con
+            // dati parziali (prima qui c'era un runInTransaction {} vuoto, un no-op che non
+            // proteggeva nulla).
+            database.withTransaction {
+                clearAllTables()
+
+                // clearAllTables() svuota anche `locations` — il formato di backup non porta
+                // ancora le ubicazioni (TODO in BackupSerializer), quindi va ricreata subito
+                // l'ubicazione di default, altrimenti inventario/movimenti non hanno dove
+                // essere assegnati.
+                val now = System.currentTimeMillis()
+                locationDao.insert(
+                    LocationEntity(
+                        uuid = defaultLocationUuid,
+                        name = "Magazzino principale",
+                        notes = "",
+                        createdAt = now,
+                        updatedAt = now
+                    )
                 )
-            )
 
-            // 10. Inserisci i nuovi dati (in ordine FK)
-            progressCallback("Ripristino categorie...", 0.50f)
-            categories.forEach { category ->
-                articleCategoryDao.insert(serializer.mapToCategory(category))
+                // 10. Inserisci i nuovi dati (in ordine FK)
+                progressCallback("Ripristino categorie...", 0.50f)
+                categories.forEach { category ->
+                    articleCategoryDao.insert(serializer.mapToCategory(category))
+                }
+
+                progressCallback("Ripristino articoli...", 0.55f)
+                articles.forEach { article ->
+                    articleDao.insert(serializer.mapToArticle(article))
+                }
+
+                progressCallback("Ripristino inventario...", 0.60f)
+                inventory.forEach { inv ->
+                    inventoryDao.insert(serializer.mapToInventory(inv, defaultLocationUuid))
+                }
+
+                progressCallback("Ripristino immagini articoli...", 0.65f)
+                articleImages.forEach { image ->
+                    val entity = serializer.mapToArticleImage(image)
+                    articleImageDao.insert(entity)
+                }
+
+                progressCallback("Ripristino movimenti...", 0.70f)
+                movements.forEach { movement ->
+                    movementDao.insert(serializer.mapToMovement(movement, defaultLocationUuid))
+                }
             }
 
-            progressCallback("Ripristino articoli...", 0.55f)
-            articles.forEach { article ->
-                articleDao.insert(serializer.mapToArticle(article))
-            }
-
-            progressCallback("Ripristino inventario...", 0.60f)
-            inventory.forEach { inv ->
-                inventoryDao.insert(serializer.mapToInventory(inv, defaultLocationUuid))
-            }
-
-            progressCallback("Ripristino immagini articoli...", 0.65f)
-            articleImages.forEach { image ->
-                val entity = serializer.mapToArticleImage(image)
-                articleImageDao.insert(entity)
-            }
-
-            progressCallback("Ripristino movimenti...", 0.70f)
-            movements.forEach { movement ->
-                movementDao.insert(serializer.mapToMovement(movement, defaultLocationUuid))
-            }
-            
             // 11. Ripristina i file delle immagini
             progressCallback("Ripristino file immagini...", 0.80f)
             zipContent.imageFiles.forEach { (relativePath, imageData) ->
@@ -410,11 +412,15 @@ class BackupRepositoryImpl @Inject constructor(
             )
             
         } catch (e: Exception) {
-            // Tentativo di rollback
+            // database.withTransaction esegue il rollback automaticamente se l'eccezione
+            // arriva da dentro il blocco (il caso più comune: un dato malformato durante uno
+            // degli insert) — il DB torna quindi allo stato precedente al ripristino. Non è
+            // garantito per un'eccezione dai passi fuori transazione (file immagini, impostazioni),
+            // ma per quelli non c'è comunque nulla da "annullare" lato DB.
             return RestoreResult.Error(
                 error = e,
                 phase = RestorePhase.RESTORING_ARTICLES,
-                rollbackSuccessful = false
+                rollbackSuccessful = true
             )
         }
     }
