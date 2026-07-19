@@ -73,6 +73,45 @@ class DisplaySettingsViewModel @Inject constructor(
     }
 
     /**
+     * Aggiorna la visibilità della sezione statistiche nella Home.
+     */
+    fun setShowDashboardStats(show: Boolean) {
+        viewModelScope.launch {
+            try {
+                settingsRepository.setShowDashboardStats(show)
+            } catch (e: Exception) {
+                showError("Errore: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Aggiorna la visibilità della sezione "Ultimi Movimenti" nella Home.
+     */
+    fun setShowRecentMovements(show: Boolean) {
+        viewModelScope.launch {
+            try {
+                settingsRepository.setShowRecentMovements(show)
+            } catch (e: Exception) {
+                showError("Errore: ${e.message}")
+            }
+        }
+    }
+
+    /**
+     * Aggiorna la visibilità della sezione "Ultimi Articoli Creati" nella Home.
+     */
+    fun setShowRecentArticles(show: Boolean) {
+        viewModelScope.launch {
+            try {
+                settingsRepository.setShowRecentArticles(show)
+            } catch (e: Exception) {
+                showError("Errore: ${e.message}")
+            }
+        }
+    }
+
+    /**
      * Ripristina tutte le impostazioni display ai valori di default.
      */
     fun resetToDefault() {

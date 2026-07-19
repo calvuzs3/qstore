@@ -167,6 +167,15 @@ class ArticleRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getRecentlyCreated(limit: Int): Result<List<Article>> {
+        return try {
+            val entities = articleDao.getRecentlyCreated(limit)
+            Result.success(entities.map { articleMapper.toDomain(it) })
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private suspend fun resolveDefaultLocationUuid(): String =
         locationDao.getAll().firstOrNull()?.uuid
             ?: throw IllegalStateException(

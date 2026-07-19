@@ -16,7 +16,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import net.calvuz.qstore.app.domain.model.Article
+import net.calvuz.qstore.app.domain.model.LocationStats
 import net.calvuz.qstore.app.domain.model.Movement
 import net.calvuz.qstore.app.domain.model.enum.MovementType
 import net.calvuz.qstore.app.presentation.ui.common.ErrorState
@@ -24,6 +28,7 @@ import net.calvuz.qstore.app.presentation.ui.theme.PlexMono
 import net.calvuz.qstore.app.presentation.ui.theme.registrationTicks
 import net.calvuz.qstore.app.presentation.ui.theme.accentInk
 import net.calvuz.qstore.app.presentation.ui.theme.accentInkAlt
+import net.calvuz.qstore.settings.domain.model.DisplaySettings
 
 /**
  * Home Screen - Dashboard principale
@@ -48,6 +53,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val displaySettings by viewModel.displaySettings.collectAsStateWithLifecycle()
 
     // HomeViewModel carica i dati con fetch one-shot, non Flow reattivi — senza questo,
     // tornando qui dopo una sync (Impostazioni > Account) o dopo aver registrato un
@@ -143,8 +149,11 @@ fun HomeScreen(
                 is HomeUiState.Success -> {
                     DashboardContent(
                         stats = state.stats,
+                        locationStats = state.locationStats,
                         lowStockArticles = state.lowStockArticles,
                         recentMovements = state.recentMovements,
+                        recentArticles = state.recentArticles,
+                        displaySettings = displaySettings,
                         onNavigateToArticles = onNavigateToArticles,
                         onNavigateToMovements = onNavigateToMovements,
                         onNavigateToCamera = onNavigateToCamera,
@@ -160,8 +169,11 @@ fun HomeScreen(
 @Composable
 private fun DashboardContent(
     stats: DashboardStats,
+    locationStats: List<LocationStats>,
     lowStockArticles: List<Article>,
     recentMovements: List<Movement>,
+    recentArticles: List<Article>,
+    displaySettings: DisplaySettings,
     onNavigateToArticles: () -> Unit,
     onNavigateToMovements: () -> Unit,
     onNavigateToCamera: () -> Unit,
@@ -181,9 +193,17 @@ private fun DashboardContent(
             )
         }
 
-        // Statistiche
-        item {
-            StatsCard(stats = stats)
+        // Statistiche (totali + per magazzino) — sezione opzionale
+        if (displaySettings.showDashboardStats) {
+            item {
+                StatsCard(stats = stats)
+            }
+
+            if (locationStats.isNotEmpty()) {
+                item {
+                    LocationStatsCard(locationStats = locationStats)
+                }
+            }
         }
 
         // Articoli sotto scorta
@@ -204,8 +224,8 @@ private fun DashboardContent(
             }
         }
 
-        // Ultimi movimenti
-        if (recentMovements.isNotEmpty()) {
+        // Ultimi movimenti — sezione opzionale
+        if (displaySettings.showRecentMovements && recentMovements.isNotEmpty()) {
             item {
                 Text(
                     "📋 Ultimi Movimenti",
@@ -216,6 +236,24 @@ private fun DashboardContent(
 
             items(recentMovements) { movement ->
                 RecentMovementCard(movement = movement)
+            }
+        }
+
+        // Ultimi articoli creati — sezione opzionale
+        if (displaySettings.showRecentArticles && recentArticles.isNotEmpty()) {
+            item {
+                Text(
+                    "🆕 Ultimi Articoli Creati",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            items(recentArticles) { article ->
+                RecentArticleCard(
+                    article = article,
+                    onClick = { onArticleClick(article.uuid) }
+                )
             }
         }
     }
@@ -383,6 +421,70 @@ private fun StatItem(
 }
 
 @Composable
+private fun LocationStatsCard(locationStats: List<LocationStats>) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                "Articoli per Magazzino",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+
+            locationStats.forEach { location ->
+                LocationStatsRow(location = location)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LocationStatsRow(location: LocationStats) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Warehouse,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                location.locationName,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+
+        Text(
+            "${location.articleCount} art. · ${location.totalQuantity.formatQuantity()}",
+            style = MaterialTheme.typography.bodyMedium,
+            fontFamily = PlexMono,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.accentInk
+        )
+    }
+}
+
+private fun Double.formatQuantity(): String {
+    return if (this == this.toLong().toDouble()) {
+        this.toLong().toString()
+    } else {
+        "%.2f".format(this)
+    }
+}
+
+@Composable
 private fun LowStockArticleCard(
     article: Article,
     onClick: () -> Unit
@@ -485,5 +587,54 @@ private fun RecentMovementCard(movement: Movement) {
             )
         }
     }
+}
+
+@Composable
+private fun RecentArticleCard(
+    article: Article,
+    onClick: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.NewReleases,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.accentInk
+            )
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    article.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    formatCreatedAt(article.createdAt),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Icon(
+                Icons.Default.ChevronRight,
+                contentDescription = "Dettagli"
+            )
+        }
+    }
+}
+
+private fun formatCreatedAt(timestamp: Long): String {
+    val dateTime = Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).toLocalDateTime()
+    return dateTime.format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))
 }
 

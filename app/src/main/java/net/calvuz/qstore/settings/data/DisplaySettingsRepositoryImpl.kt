@@ -41,6 +41,9 @@ class DisplaySettingsRepositoryImpl @Inject constructor(
         val SHOW_STOCK_INDICATORS = booleanPreferencesKey("show_stock_indicators")
         val SHOW_ARTICLE_IMAGES = booleanPreferencesKey("show_article_images")
         val GRID_COLUMNS = intPreferencesKey("grid_columns")
+        val SHOW_DASHBOARD_STATS = booleanPreferencesKey("show_dashboard_stats")
+        val SHOW_RECENT_MOVEMENTS = booleanPreferencesKey("show_recent_movements")
+        val SHOW_RECENT_ARTICLES = booleanPreferencesKey("show_recent_articles")
     }
 
     // === Implementazione Repository ===
@@ -53,7 +56,10 @@ class DisplaySettingsRepositoryImpl @Inject constructor(
                 ),
                 showStockIndicators = preferences[PreferenceKeys.SHOW_STOCK_INDICATORS] ?: true,
                 showArticleImages = preferences[PreferenceKeys.SHOW_ARTICLE_IMAGES] ?: true,
-                gridColumns = preferences[PreferenceKeys.GRID_COLUMNS] ?: 1
+                gridColumns = preferences[PreferenceKeys.GRID_COLUMNS] ?: 1,
+                showDashboardStats = preferences[PreferenceKeys.SHOW_DASHBOARD_STATS] ?: true,
+                showRecentMovements = preferences[PreferenceKeys.SHOW_RECENT_MOVEMENTS] ?: true,
+                showRecentArticles = preferences[PreferenceKeys.SHOW_RECENT_ARTICLES] ?: true
             )
         }
     }
@@ -64,6 +70,9 @@ class DisplaySettingsRepositoryImpl @Inject constructor(
             preferences[PreferenceKeys.SHOW_STOCK_INDICATORS] = settings.showStockIndicators
             preferences[PreferenceKeys.SHOW_ARTICLE_IMAGES] = settings.showArticleImages
             preferences[PreferenceKeys.GRID_COLUMNS] = settings.gridColumns
+            preferences[PreferenceKeys.SHOW_DASHBOARD_STATS] = settings.showDashboardStats
+            preferences[PreferenceKeys.SHOW_RECENT_MOVEMENTS] = settings.showRecentMovements
+            preferences[PreferenceKeys.SHOW_RECENT_ARTICLES] = settings.showRecentArticles
         }
     }
 
@@ -107,6 +116,24 @@ class DisplaySettingsRepositoryImpl @Inject constructor(
     override suspend fun setShowArticleImages(show: Boolean) {
         dataStore.edit { preferences ->
             preferences[PreferenceKeys.SHOW_ARTICLE_IMAGES] = show
+        }
+    }
+
+    override suspend fun setShowDashboardStats(show: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferenceKeys.SHOW_DASHBOARD_STATS] = show
+        }
+    }
+
+    override suspend fun setShowRecentMovements(show: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferenceKeys.SHOW_RECENT_MOVEMENTS] = show
+        }
+    }
+
+    override suspend fun setShowRecentArticles(show: Boolean) {
+        dataStore.edit { preferences ->
+            preferences[PreferenceKeys.SHOW_RECENT_ARTICLES] = show
         }
     }
 }

@@ -61,4 +61,19 @@ interface DisplaySettingsRepository {
      * Aggiorna la visibilità delle immagini articoli.
      */
     suspend fun setShowArticleImages(show: Boolean)
+
+    /**
+     * Aggiorna la visibilità della sezione statistiche nella Home.
+     */
+    suspend fun setShowDashboardStats(show: Boolean)
+
+    /**
+     * Aggiorna la visibilità della sezione "Ultimi Movimenti" nella Home.
+     */
+    suspend fun setShowRecentMovements(show: Boolean)
+
+    /**
+     * Aggiorna la visibilità della sezione "Ultimi Articoli Creati" nella Home.
+     */
+    suspend fun setShowRecentArticles(show: Boolean)
 }

@@ -31,7 +31,22 @@ data class DisplaySettings(
      * Valori supportati: 1 (lista), 2, 3
      * Nota: per ora usiamo sempre lista, questo è per future implementazioni.
      */
-    val gridColumns: Int = 1
+    val gridColumns: Int = 1,
+
+    /**
+     * Mostra la sezione statistiche (totali + per magazzino) nella Home.
+     */
+    val showDashboardStats: Boolean = true,
+
+    /**
+     * Mostra la sezione "Ultimi Movimenti" nella Home.
+     */
+    val showRecentMovements: Boolean = true,
+
+    /**
+     * Mostra la sezione "Ultimi Articoli Creati" nella Home.
+     */
+    val showRecentArticles: Boolean = true
 
     // === Future espansioni ===
     // val themeMode: ThemeMode = ThemeMode.SYSTEM,

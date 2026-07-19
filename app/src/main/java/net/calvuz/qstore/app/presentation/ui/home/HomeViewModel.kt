@@ -6,27 +6,46 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import net.calvuz.qstore.app.domain.model.Article
+import net.calvuz.qstore.app.domain.model.LocationStats
 import net.calvuz.qstore.app.domain.model.Movement
 import net.calvuz.qstore.app.domain.usecase.article.GetArticleUseCase
+import net.calvuz.qstore.app.domain.usecase.location.GetLocationsUseCase
 import net.calvuz.qstore.app.domain.usecase.movement.GetMovementsUseCase
+import net.calvuz.qstore.settings.domain.model.DisplaySettings
+import net.calvuz.qstore.settings.domain.repository.DisplaySettingsRepository
 import javax.inject.Inject
 
 /**
  * ViewModel per Home Screen (Dashboard)
  *
  * Gestisce:
- * - Statistiche magazzino
+ * - Statistiche magazzino (totali + per ubicazione)
  * - Articoli sotto scorta
  * - Ultimi movimenti
+ * - Ultimi articoli creati
+ * - Visibilità opzionale delle sezioni (da DisplaySettings)
  */
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val getArticleUseCase: GetArticleUseCase,
-    private val getMovementsUseCase: GetMovementsUseCase
+    private val getMovementsUseCase: GetMovementsUseCase,
+    private val getLocationsUseCase: GetLocationsUseCase,
+    private val displaySettingsRepository: DisplaySettingsRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+
+    /**
+     * Impostazioni di visualizzazione della dashboard, osservate a parte dal caricamento
+     * dati — non richiedono un refresh dei dati per aggiornarsi in UI.
+     */
+    val displaySettings: StateFlow<DisplaySettings> = displaySettingsRepository.getSettings()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = DisplaySettings.getDefault()
+        )
 
     init {
         loadDashboardData()
@@ -48,6 +67,14 @@ class HomeViewModel @Inject constructor(
                 val recentMovements = getMovementsUseCase.getRecent(limit = 5)
                     .getOrElse { emptyList() }
 
+                // Carica ultimi articoli creati
+                val recentArticles = getArticleUseCase.getRecentlyCreated(limit = 5)
+                    .getOrElse { emptyList() }
+
+                // Statistiche per magazzino
+                val locationStats = getLocationsUseCase.getStats()
+                    .getOrElse { emptyList() }
+
                 // Calcola statistiche
                 val stats = calculateStats(articles)
 
@@ -62,8 +89,10 @@ class HomeViewModel @Inject constructor(
 
                 _uiState.value = HomeUiState.Success(
                     stats = stats,
+                    locationStats = locationStats,
                     lowStockArticles = lowStockArticles,
-                    recentMovements = recentMovements
+                    recentMovements = recentMovements,
+                    recentArticles = recentArticles
                 )
 
             } catch (e: Exception) {
@@ -122,8 +151,10 @@ sealed class HomeUiState {
 
     data class Success(
         val stats: DashboardStats,
+        val locationStats: List<LocationStats>,
         val lowStockArticles: List<Article>,
-        val recentMovements: List<Movement>
+        val recentMovements: List<Movement>,
+        val recentArticles: List<Article>
     ) : HomeUiState()
 
     data class Error(val message: String) : HomeUiState()

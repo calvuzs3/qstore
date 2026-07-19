@@ -20,7 +20,10 @@ import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.QueryStats
 import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
+import androidx.compose.material.icons.filled.NewReleases
 import androidx.compose.material.icons.filled.ViewAgenda
 import androidx.compose.material.icons.filled.ViewCompact
 import androidx.compose.material3.Card
@@ -147,6 +150,38 @@ fun DisplaySettingsScreen(
                         subtitle = "Mostra thumbnail nelle card",
                         checked = currentSettings.showArticleImages,
                         onCheckedChange = viewModel::setShowArticleImages
+                    )
+                }
+            }
+
+            // === Dashboard Home ===
+            item {
+                SettingsSection(
+                    title = "Dashboard Home",
+                    description = "Scegli quali sezioni mostrare nella schermata principale"
+                ) {
+                    SettingsSwitchItem(
+                        icon = Icons.Default.QueryStats,
+                        title = "Statistiche",
+                        subtitle = "Mostra i totali e le giacenze per magazzino",
+                        checked = currentSettings.showDashboardStats,
+                        onCheckedChange = viewModel::setShowDashboardStats
+                    )
+
+                    SettingsSwitchItem(
+                        icon = Icons.AutoMirrored.Filled.CompareArrows,
+                        title = "Ultimi Movimenti",
+                        subtitle = "Mostra le movimentazioni più recenti",
+                        checked = currentSettings.showRecentMovements,
+                        onCheckedChange = viewModel::setShowRecentMovements
+                    )
+
+                    SettingsSwitchItem(
+                        icon = Icons.Default.NewReleases,
+                        title = "Ultimi Articoli Creati",
+                        subtitle = "Mostra gli articoli aggiunti più di recente",
+                        checked = currentSettings.showRecentArticles,
+                        onCheckedChange = viewModel::setShowRecentArticles
                     )
                 }
             }

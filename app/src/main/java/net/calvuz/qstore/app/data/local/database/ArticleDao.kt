@@ -39,6 +39,10 @@ interface ArticleDao {
     @Query("SELECT * FROM articles WHERE is_deleted = 0 AND category_id = :category ORDER BY name ASC")
     suspend fun getByCategory(category: String): List<ArticleEntity>
 
+    /** Ultimi articoli creati (dashboard Home) — ordinati per data di creazione decrescente. */
+    @Query("SELECT * FROM articles WHERE is_deleted = 0 ORDER BY created_at DESC LIMIT :limit")
+    suspend fun getRecentlyCreated(limit: Int): List<ArticleEntity>
+
     @Query("SELECT COUNT(*) FROM articles WHERE is_deleted = 0")
     suspend fun count(): Int
 
