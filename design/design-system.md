@@ -144,6 +144,33 @@ Ogni componente disegnato ha già un equivalente funzionante in Kotlin: questo n
 che esistono già e sono già centralizzati (vedi commit "Consolidamento design
 system" precedente).
 
+## Logo app e asset Store
+
+Sorgente: `design/logo-quickstore.svg` (400×400, stessa costruzione a livelli di
+`../../QuickReport/design/logo-qreport.svg` — anello arancio "O" della Q con copia
+d'ombra grafite dietro, due "bulloni" color crema sull'anello). Al posto del braccio
+robotico "precision manufacturer" di QuickReport (che lì rappresentava le celle
+robotizzate ispezionate), qui c'è una **S**, colore acciaio `#A9B4C2` con copia
+d'ombra grafite dietro (stessa tecnica del resto del logo), sovrapposta al bordo
+destro dell'anello nella stessa posizione/ingombro occupati dal braccio in
+QuickReport. La S è il vero glifo Bold del font Archivo (font display dell'app,
+vedi rinfrescata tipografica sopra) incorporato nell'SVG come `@font-face` data URI,
+non una curva disegnata a mano — due tentativi di curva costruita a mano (sigmoide
+bezier, poi archi circolari) risultavano entrambi otticamente storti nonostante la
+simmetria geometrica sull'asse verticale; un carattere tipografico vero è già
+disegnato e bilanciato otticamente, quindi non ha questo problema. Font incorporato
+= l'SVG renderizza identico ovunque venga aperto, senza dipendere dai font
+installati sul sistema. Solo l'SVG è mantenuto qui: le densità mipmap Android
+(adaptive icon, `ic_launcher`/`_round`/`_foreground`) sono generate a parte con
+Image Asset Studio, non da questo repo.
+
+Asset di pubblicazione Play Store in `design/store-assets/`:
+`quickstore_icon_512x512.png` (render diretto del logo) e
+`feature_graphic.svg`/`quickstore_feature_graphic_1024x500.png` (1024×500, stesso
+schema di QReport: sfondo grafite scuro `#1B1B1B` con textura diagonale, icona a
+sinistra, nome app in Roboto Black bianco con sottolineatura arancio, sottotitolo in
+maiuscolo tracciato).
+
 ## Motivo ricorrente: mire d'angolo
 
 Piccola "L" da 9×9px in due angoli opposti di card e stat, colore = colore
