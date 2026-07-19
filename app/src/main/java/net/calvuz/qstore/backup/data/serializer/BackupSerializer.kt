@@ -94,7 +94,11 @@ class BackupSerializer @Inject constructor() {
             articleCardStyle = settings.articleCardStyle.name,
             showStockIndicators = settings.showStockIndicators,
             showArticleImages = settings.showArticleImages,
-            gridColumns = settings.gridColumns
+            gridColumns = settings.gridColumns,
+            showArticleActions = settings.showArticleActions,
+            showDashboardStats = settings.showDashboardStats,
+            showRecentMovements = settings.showRecentMovements,
+            showRecentArticles = settings.showRecentArticles
         )
     }
     
@@ -193,7 +197,11 @@ class BackupSerializer @Inject constructor() {
             articleCardStyle = ArticleCardStyle.fromName(backup.articleCardStyle),
             showStockIndicators = backup.showStockIndicators,
             showArticleImages = backup.showArticleImages,
-            gridColumns = backup.gridColumns
+            gridColumns = backup.gridColumns,
+            showArticleActions = backup.showArticleActions,
+            showDashboardStats = backup.showDashboardStats,
+            showRecentMovements = backup.showRecentMovements,
+            showRecentArticles = backup.showRecentArticles
         )
     }
     

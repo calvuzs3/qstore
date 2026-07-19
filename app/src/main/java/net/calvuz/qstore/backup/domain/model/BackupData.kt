@@ -90,7 +90,14 @@ data class DisplaySettingsBackup(
     val articleCardStyle: String,
     val showStockIndicators: Boolean,
     val showArticleImages: Boolean,
-    val gridColumns: Int
+    val gridColumns: Int,
+    // Aggiunti dopo il primo formato di backup — default a `true` (coerente con
+    // DisplaySettings) cosi un backup più vecchio senza queste chiavi si ripristina comunque
+    // con lo stesso comportamento di prima (nessuna sezione nascosta).
+    val showArticleActions: Boolean = true,
+    val showDashboardStats: Boolean = true,
+    val showRecentMovements: Boolean = true,
+    val showRecentArticles: Boolean = true
 )
 
 @Serializable
