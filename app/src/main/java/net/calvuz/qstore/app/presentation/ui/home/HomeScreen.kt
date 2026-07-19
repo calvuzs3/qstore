@@ -26,7 +26,7 @@ import net.calvuz.qstore.app.domain.model.LocationStats
 import net.calvuz.qstore.app.domain.model.Movement
 import net.calvuz.qstore.app.domain.model.enum.MovementType
 import net.calvuz.qstore.app.presentation.ui.common.ErrorState
-import net.calvuz.qstore.app.presentation.ui.theme.PlexMono
+import net.calvuz.qstore.app.presentation.ui.theme.JetBrainsMono
 import net.calvuz.qstore.app.presentation.ui.theme.registrationTicks
 import net.calvuz.qstore.app.presentation.ui.theme.accentInk
 import net.calvuz.qstore.app.presentation.ui.theme.accentInkAlt
@@ -441,7 +441,7 @@ private fun StatItem(
             Text(
                 value,
                 style = MaterialTheme.typography.headlineSmall,
-                fontFamily = PlexMono,
+                fontFamily = JetBrainsMono,
                 color = color
             )
             Text(
@@ -502,7 +502,7 @@ private fun LocationStatsRow(location: LocationStats) {
         Text(
             "${location.articleCount} art. · ${location.totalQuantity.formatQuantity()}",
             style = MaterialTheme.typography.bodyMedium,
-            fontFamily = PlexMono,
+            fontFamily = JetBrainsMono,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.accentInk
         )
