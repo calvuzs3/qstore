@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Warehouse
@@ -45,7 +44,6 @@ import net.calvuz.qstore.app.domain.model.Article
 import net.calvuz.qstore.app.presentation.ui.theme.PlexMono
 import net.calvuz.qstore.app.presentation.ui.theme.registrationTicks
 import net.calvuz.qstore.app.presentation.ui.theme.accentInk
-import net.calvuz.qstore.app.presentation.ui.theme.accentInkAlt
 import net.calvuz.qstore.settings.domain.model.ArticleCardStyle
 import java.io.File
 
@@ -57,6 +55,7 @@ import java.io.File
  * @param cardStyle Stile di visualizzazione (FULL, COMPACT, MINIMAL)
  * @param showImage Se mostrare l'immagine thumbnail
  * @param showStockIndicator Se mostrare l'indicatore di stock
+ * @param showActions Se mostrare i pulsanti di azione (Elimina) — se false, la card resta cliccabile ma senza azioni rapide
  * @param stockLevel Livello di stock per l'indicatore (null = non disponibile)
  * @param quantityLabel Etichetta giacenza nel magazzino attivo (null = nessun magazzino selezionato, non mostrata)
  * @param onClick Callback click sulla card
@@ -69,6 +68,7 @@ fun ArticleCard(
     cardStyle: ArticleCardStyle = ArticleCardStyle.COMPACT,
     showImage: Boolean = true,
     showStockIndicator: Boolean = true,
+    showActions: Boolean = true,
     stockLevel: StockLevel? = null,
     quantityLabel: String? = null,
     onClick: () -> Unit,
@@ -94,6 +94,7 @@ fun ArticleCard(
             categoryName = categoryName,
             showImage = showImage,
             showStockIndicator = showStockIndicator,
+            showActions = showActions,
             stockLevel = stockLevel,
             quantityLabel = quantityLabel,
             onClick = onClick,
@@ -105,6 +106,7 @@ fun ArticleCard(
             categoryName = categoryName,
             showImage = showImage,
             showStockIndicator = showStockIndicator,
+            showActions = showActions,
             stockLevel = stockLevel,
             quantityLabel = quantityLabel,
             onClick = onClick,
@@ -118,7 +120,6 @@ fun ArticleCard(
             stockLevel = stockLevel,
             quantityLabel = quantityLabel,
             onClick = onClick,
-            onDeleteClick = { showDeleteDialog = true }
         )
     }
 }
@@ -132,6 +133,7 @@ private fun ArticleCardFull(
     categoryName: String?,
     showImage: Boolean,
     showStockIndicator: Boolean,
+    showActions: Boolean,
     stockLevel: StockLevel?,
     quantityLabel: String?,
     onClick: () -> Unit,
@@ -222,23 +224,19 @@ private fun ArticleCardFull(
             }
 
             // Actions
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                IconButton(onClick = onDeleteClick) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Elimina",
-                        tint = MaterialTheme.colorScheme.error
-                    )
+            if (showActions) {
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    IconButton(onClick = onDeleteClick) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Elimina",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
-
-                Icon(
-                    Icons.AutoMirrored.Default.KeyboardArrowRight,
-                    contentDescription = "Dettagli",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
     }
@@ -253,6 +251,7 @@ private fun ArticleCardCompact(
     categoryName: String?,
     showImage: Boolean,
     showStockIndicator: Boolean,
+    showActions: Boolean,
     stockLevel: StockLevel?,
     quantityLabel: String?,
     onClick: () -> Unit,
@@ -331,23 +330,19 @@ private fun ArticleCardCompact(
             }
 
             // Actions
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                IconButton(onClick = onDeleteClick) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Elimina",
-                        tint = MaterialTheme.colorScheme.error
-                    )
+            if (showActions) {
+                Column(
+                    horizontalAlignment = Alignment.End,
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    IconButton(onClick = onDeleteClick) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = "Elimina",
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                    }
                 }
-
-                Icon(
-                    Icons.AutoMirrored.Default.KeyboardArrowRight,
-                    contentDescription = "Dettagli",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
             }
         }
     }
@@ -364,7 +359,6 @@ private fun ArticleCardMinimal(
     stockLevel: StockLevel?,
     quantityLabel: String?,
     onClick: () -> Unit,
-    onDeleteClick: () -> Unit
 ) {
     Card(
         onClick = onClick,
@@ -418,12 +412,12 @@ private fun ArticleCardMinimal(
             }
 
             // Solo freccia (delete via long-press o swipe)
-            Icon(
-                Icons.AutoMirrored.Default.KeyboardArrowRight,
-                contentDescription = "Dettagli",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
-            )
+//            Icon(
+//                Icons.AutoMirrored.Default.KeyboardArrowRight,
+//                contentDescription = "Dettagli",
+//                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+//                modifier = Modifier.size(20.dp)
+//            )
         }
     }
 }

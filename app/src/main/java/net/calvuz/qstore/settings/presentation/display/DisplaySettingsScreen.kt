@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.filled.ArrowBackIosNew
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.QueryStats
@@ -150,6 +151,14 @@ fun DisplaySettingsScreen(
                         subtitle = "Mostra thumbnail nelle card",
                         checked = currentSettings.showArticleImages,
                         onCheckedChange = viewModel::setShowArticleImages
+                    )
+
+                    SettingsSwitchItem(
+                        icon = Icons.Default.Delete,
+                        title = "Pulsanti Azione",
+                        subtitle = "Mostra il pulsante Elimina nelle card articoli",
+                        checked = currentSettings.showArticleActions,
+                        onCheckedChange = viewModel::setShowArticleActions
                     )
                 }
             }
