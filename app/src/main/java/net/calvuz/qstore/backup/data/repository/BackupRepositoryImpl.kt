@@ -217,16 +217,23 @@ class BackupRepositoryImpl @Inject constructor(
     // BACKUP RESTORE
     // ============================================
     
-    override fun restoreBackup(backupFile: File, options: RestoreOptions): Flow<BackupProgress> = flow {
-        emit(BackupProgress("Validazione backup...", 0.0f))
-        
+    override fun restoreBackup(backupFile: File, options: RestoreOptions): Flow<BackupProgress> = channelFlow {
+        send(BackupProgress("Validazione backup...", 0.0f))
+
+        // channelFlow, non flow: restoreBackupInternal riporta progresso anche da dentro
+        // database.withTransaction {}, che Room esegue su un dispatcher di transazione
+        // dedicato — diverso da quello su cui questo flow viene raccolto. Con il builder
+        // flow{}/emit() questo viola l'invariante di context-preservation ("Flow invariant
+        // is violated ... FlowCollector is not thread safe"), perché emit() richiede di
+        // essere chiamato dalla stessa coroutine che ha avviato la raccolta. send() su
+        // channelFlow non ha questo vincolo, essendo supportato da un canale.
         try {
             val result = restoreBackupInternal(backupFile, options) { phase, progress ->
-                emit(BackupProgress(phase, progress))
+                send(BackupProgress(phase, progress))
             }
-            
+
             when (result) {
-                is RestoreResult.Success -> emit(BackupProgress("Ripristino completato!", 1.0f))
+                is RestoreResult.Success -> send(BackupProgress("Ripristino completato!", 1.0f))
                 is RestoreResult.Error -> throw result.error
                 is RestoreResult.Invalid -> throw Exception("Backup non valido: ${result.reason}")
             }
