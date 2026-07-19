@@ -1,13 +1,15 @@
 package net.calvuz.qstore.app.presentation.ui.home
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import net.calvuz.qstore.app.presentation.ui.common.QsOutlinedButton as OutlinedButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,8 +39,10 @@ import net.calvuz.qstore.settings.domain.model.DisplaySettings
  * - Statistiche magazzino
  * - Articoli sotto scorta
  * - Ultimi movimenti
- * - Azioni rapide
  * - Impostazioni
+ *
+ * La navigazione verso Articoli/Movimenti/Cerca Foto è affidata alla bottom bar
+ * (vedi [HomeBottomBar]) invece che a una card di azioni rapide nel contenuto.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,7 +50,6 @@ fun HomeScreen(
     onNavigateToArticles: () -> Unit,
     onNavigateToMovements: () -> Unit,
     onNavigateToCamera: () -> Unit,
-    onNavigateToAddArticle: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onArticleClick: (String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
@@ -105,14 +108,12 @@ fun HomeScreen(
 
             )
         },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onNavigateToAddArticle,
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            ) {
-                Icon(Icons.Default.Add, "Aggiungi articolo")
-            }
+        bottomBar = {
+            HomeBottomBar(
+                onNavigateToArticles = onNavigateToArticles,
+                onNavigateToMovements = onNavigateToMovements,
+                onNavigateToCamera = onNavigateToCamera
+            )
         }
     ) { paddingValues ->
         Box(
@@ -143,9 +144,6 @@ fun HomeScreen(
                         recentMovements = state.recentMovements,
                         recentArticles = state.recentArticles,
                         displaySettings = displaySettings,
-                        onNavigateToArticles = onNavigateToArticles,
-                        onNavigateToMovements = onNavigateToMovements,
-                        onNavigateToCamera = onNavigateToCamera,
                         onArticleClick = onArticleClick
                     )
                 }
@@ -163,9 +161,6 @@ private fun DashboardContent(
     recentMovements: List<Movement>,
     recentArticles: List<Article>,
     displaySettings: DisplaySettings,
-    onNavigateToArticles: () -> Unit,
-    onNavigateToMovements: () -> Unit,
-    onNavigateToCamera: () -> Unit,
     onArticleClick: (String) -> Unit
 ) {
     LazyColumn(
@@ -173,15 +168,6 @@ private fun DashboardContent(
         contentPadding = PaddingValues(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Azioni rapide
-        item {
-            QuickActionsCard(
-                onNavigateToArticles = onNavigateToArticles,
-                onNavigateToMovements = onNavigateToMovements,
-                onNavigateToCamera = onNavigateToCamera
-            )
-        }
-
         // Statistiche (totali + per magazzino) — sezione opzionale
         if (displaySettings.showDashboardStats) {
             item {
@@ -248,77 +234,135 @@ private fun DashboardContent(
     }
 }
 
+/**
+ * Bottom bar della Home — Articoli a sinistra, Movimenti a destra, e "Cerca Foto" al centro
+ * come pulsante rialzato che sovrasta la barra piatta (pattern "cradle"). Sostituisce la
+ * precedente card "Azioni" nel contenuto: le stesse tre destinazioni restano sempre visibili
+ * senza scorrere la pagina.
+ */
 @Composable
-private fun QuickActionsCard(
+private fun HomeBottomBar(
     onNavigateToArticles: () -> Unit,
     onNavigateToMovements: () -> Unit,
     onNavigateToCamera: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(88.dp)
         ) {
-            Text(
-                "Azioni",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)
+                    .align(Alignment.BottomCenter),
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 2.dp,
+                shadowElevation = 8.dp
             ) {
-                QuickActionButton(
-                    icon = Icons.Default.Warehouse,
-                    label = "Articoli",
-                    onClick = onNavigateToArticles,
-                    modifier = Modifier.weight(1f)
-                )
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    HomeNavItem(
+                        icon = Icons.Default.Warehouse,
+                        label = "Articoli",
+                        onClick = onNavigateToArticles,
+                        modifier = Modifier.weight(1f)
+                    )
 
-                QuickActionButton(
-                    icon = Icons.Default.SwapVert,
-                    label = "Movimenti",
-                    onClick = onNavigateToMovements,
-                    modifier = Modifier.weight(1f)
-                )
+                    // Spazio riservato al pulsante "Cerca Foto", che galleggia sopra la barra
+                    Spacer(modifier = Modifier.weight(1f))
 
-                QuickActionButton(
-                    icon = Icons.Default.CameraAlt,
-                    label = "Cerca Foto",
-                    onClick = onNavigateToCamera,
-                    modifier = Modifier.weight(1f)
-                )
+                    HomeNavItem(
+                        icon = Icons.Default.SwapVert,
+                        label = "Movimenti",
+                        onClick = onNavigateToMovements,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
+
+            ScanFab(
+                onClick = onNavigateToCamera,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
         }
+
+        // In edge-to-edge (vedi MainActivity.setDecorFitsSystemWindows(false)) la bottom bar
+        // disegnerebbe altrimenti sotto i controlli di sistema (gesture bar / 3 tasti) — questo
+        // spazio dello stesso colore la spinge sopra l'inset, qualunque sia la sua altezza.
+        Spacer(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(MaterialTheme.colorScheme.surface)
+                .windowInsetsBottomHeight(WindowInsets.navigationBars)
+        )
     }
 }
 
 @Composable
-private fun QuickActionButton(
+private fun HomeNavItem(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    OutlinedButton(
-        onClick = onClick,
-        modifier = modifier,
-        contentPadding = PaddingValues(8.dp)
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+        Icon(
+            icon,
+            contentDescription = label,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/**
+ * Pulsante "Cerca Foto", elemento distintivo della bottom bar: riprende il motivo delle mire
+ * d'angolo ([registrationTicks], già usato nelle card statistiche) come cornice quadrata
+ * attorno al cerchio arancio — un riferimento diretto al mirino della fotocamera, coerente
+ * con l'identità "Arancio e Technical Design" e con l'azione stessa (ricerca per foto).
+ */
+@Composable
+private fun ScanFab(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(72.dp)
+            .registrationTicks(
+                color = MaterialTheme.colorScheme.primary,
+                tickSize = 14.dp,
+                strokeWidth = 2.dp,
+                alpha = 0.6f
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        FloatingActionButton(
+            onClick = onClick,
+            modifier = Modifier.size(60.dp),
+            shape = CircleShape,
+            containerColor = MaterialTheme.colorScheme.primary,
+            contentColor = MaterialTheme.colorScheme.onPrimary
         ) {
-            Icon(icon, contentDescription = label, tint = MaterialTheme.colorScheme.accentInk)
-            Text(
-                label,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
+            Icon(
+                Icons.Default.CameraAlt,
+                contentDescription = "Cerca Foto",
+                modifier = Modifier.size(26.dp)
             )
         }
     }
