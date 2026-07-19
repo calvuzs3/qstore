@@ -108,9 +108,6 @@ fun AppNavigation(
                 onNavigateToArticles = {
                     navController.navigate(Screen.ArticleList.route)
                 },
-                onNavigateToAddArticle = {
-                    navController.navigate(Screen.AddArticle.route)
-                },
                 onNavigateToCamera = {
                     navController.navigate(Screen.Camera.route)
                 },
