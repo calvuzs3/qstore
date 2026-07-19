@@ -48,7 +48,6 @@ fun HomeScreen(
     onNavigateToCamera: () -> Unit,
     onNavigateToAddArticle: () -> Unit,
     onNavigateToSettings: () -> Unit,
-    onNavigateToExport: () -> Unit,
     onArticleClick: (String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -91,16 +90,6 @@ fun HomeScreen(
                         expanded = showStatusMenu,
                         onDismissRequest = { showStatusMenu = false }
                     ) {
-                        DropdownMenuItem(
-                            text = { Text("Export") },
-                            onClick = {
-                                onNavigateToExport()
-                                showStatusMenu = false
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.Upload, contentDescription = null)
-                            }
-                        )
                         DropdownMenuItem(
                             text = { Text("Impostazioni") },
                             onClick = {

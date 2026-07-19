@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -126,6 +127,13 @@ fun SettingsScreen(
                         title = "Backup & Ripristino",
                         subtitle = "Esporta e importa i tuoi dati",
                         onClick = onNavigateToBackupRestore ?: {}
+                    )
+
+                    SettingsNavigationItem(
+                        icon = Icons.Default.Upload,
+                        title = "Esporta Dati",
+                        subtitle = "Esporta l'inventario in CSV o Excel",
+                        onClick = onNavigateToData ?: {}
                     )
                 }
             }
