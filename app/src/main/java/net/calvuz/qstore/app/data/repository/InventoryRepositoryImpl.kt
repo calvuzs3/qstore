@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import net.calvuz.qstore.app.data.local.database.InventoryDao
 import net.calvuz.qstore.app.domain.model.Inventory
+import net.calvuz.qstore.app.domain.model.InventoryEntry
 import net.calvuz.qstore.app.domain.repository.InventoryRepository
 import javax.inject.Inject
 
@@ -29,5 +30,15 @@ class InventoryRepositoryImpl @Inject constructor(
 
     override suspend fun getQuantityAt(articleUuid: String, locationUuid: String): Double {
         return inventoryDao.getQuantity(articleUuid, locationUuid) ?: 0.0
+    }
+
+    override suspend fun getAllEntries(): List<InventoryEntry> {
+        return inventoryDao.getAll().map {
+            InventoryEntry(
+                articleUuid = it.articleUuid,
+                locationUuid = it.locationUuid,
+                currentQuantity = it.currentQuantity
+            )
+        }
     }
 }

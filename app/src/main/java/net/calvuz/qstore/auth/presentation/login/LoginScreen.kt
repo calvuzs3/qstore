@@ -43,6 +43,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import net.calvuz.qstore.BuildConfig
 import net.calvuz.qstore.auth.domain.model.OrganizationChoice
 
 /**
@@ -90,6 +91,9 @@ fun LoginScreen(
                 state.syncMessage?.let {
                     snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
                 }
+                state.reconcileMessage?.let {
+                    snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Long)
+                }
             }
         }
     }
@@ -125,7 +129,8 @@ fun LoginScreen(
                 paddingValues = paddingValues,
                 onLogout = viewModel::logout,
                 onSyncNow = viewModel::syncNow,
-                onAllowMeteredNetworkChange = viewModel::setAllowMeteredNetwork
+                onAllowMeteredNetworkChange = viewModel::setAllowMeteredNetwork,
+                onReconcileInventoryMovements = viewModel::reconcileInventoryMovements
             )
         }
     }
@@ -191,7 +196,8 @@ private fun AlreadyLoggedInContent(
     paddingValues: PaddingValues,
     onLogout: () -> Unit,
     onSyncNow: () -> Unit,
-    onAllowMeteredNetworkChange: (Boolean) -> Unit
+    onAllowMeteredNetworkChange: (Boolean) -> Unit,
+    onReconcileInventoryMovements: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -249,6 +255,23 @@ private fun AlreadyLoggedInContent(
                 CircularProgressIndicator(modifier = Modifier.size(20.dp))
             } else {
                 Text("Disconnetti")
+            }
+        }
+
+        // Solo debug: tool di manutenzione una tantum per riparare gli articoli creati
+        // prima del fix di AddArticleUseCase (giacenza iniziale mai propagata dal sync
+        // perché scritta direttamente in inventory, senza movimento). Non serve in release.
+        if (BuildConfig.DEBUG) {
+            Button(
+                onClick = onReconcileInventoryMovements,
+                enabled = !state.isReconciling && !state.isSyncing,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                if (state.isReconciling) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                } else {
+                    Text("[DEBUG] Ripara movimenti mancanti")
+                }
             }
         }
     }

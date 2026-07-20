@@ -15,6 +15,7 @@ import net.calvuz.qstore.auth.domain.usecase.LoginUseCase
 import net.calvuz.qstore.auth.domain.usecase.LogoutUseCase
 import net.calvuz.qstore.auth.domain.usecase.ObserveSessionUseCase
 import net.calvuz.qstore.auth.domain.usecase.SelectOrganizationUseCase
+import net.calvuz.qstore.app.domain.usecase.movement.ReconcileInventoryMovementsUseCase
 import net.calvuz.qstore.sync.domain.usecase.ObserveAllowMeteredNetworkUseCase
 import net.calvuz.qstore.sync.domain.usecase.SetAllowMeteredNetworkUseCase
 import net.calvuz.qstore.sync.domain.usecase.SyncNowUseCase
@@ -47,7 +48,9 @@ sealed class LoginUiState {
         val isSyncing: Boolean = false,
         val syncMessage: String? = null,
         val justLoggedIn: Boolean = false,
-        val allowMeteredNetwork: Boolean = false
+        val allowMeteredNetwork: Boolean = false,
+        val isReconciling: Boolean = false,
+        val reconcileMessage: String? = null
     ) : LoginUiState()
 }
 
@@ -57,6 +60,7 @@ class LoginViewModel @Inject constructor(
     private val selectOrganizationUseCase: SelectOrganizationUseCase,
     private val logoutUseCase: LogoutUseCase,
     private val syncNowUseCase: SyncNowUseCase,
+    private val reconcileInventoryMovementsUseCase: ReconcileInventoryMovementsUseCase,
     private val observeAllowMeteredNetworkUseCase: ObserveAllowMeteredNetworkUseCase,
     private val setAllowMeteredNetworkUseCase: SetAllowMeteredNetworkUseCase,
     observeSessionUseCase: ObserveSessionUseCase
@@ -171,6 +175,36 @@ class LoginViewModel @Inject constructor(
                 .onFailure { throwable ->
                     val current = _uiState.value as? LoginUiState.AlreadyLoggedIn ?: return@onFailure
                     _uiState.value = current.copy(isSyncing = false, syncMessage = throwable.message ?: "Errore di sincronizzazione")
+                }
+        }
+    }
+
+    /**
+     * Solo debug (vedi LoginScreen): ripara gli articoli creati prima del fix di
+     * AddArticleUseCase, la cui giacenza iniziale era scritta direttamente in inventory
+     * senza generare un movimento — quindi mai propagata dal sync. Da lanciare una volta
+     * sola, poi tappare "Sincronizza ora" per pushare le correzioni generate.
+     */
+    fun reconcileInventoryMovements() {
+        val state = _uiState.value as? LoginUiState.AlreadyLoggedIn ?: return
+        _uiState.value = state.copy(isReconciling = true, reconcileMessage = null)
+
+        viewModelScope.launch {
+            reconcileInventoryMovementsUseCase()
+                .onSuccess { fixedCount ->
+                    val current = _uiState.value as? LoginUiState.AlreadyLoggedIn ?: return@onSuccess
+                    _uiState.value = current.copy(
+                        isReconciling = false,
+                        reconcileMessage = if (fixedCount > 0) {
+                            "Creati $fixedCount movimenti correttivi — ora tocca Sincronizza ora per pusharli"
+                        } else {
+                            "Nessuna correzione necessaria"
+                        }
+                    )
+                }
+                .onFailure { throwable ->
+                    val current = _uiState.value as? LoginUiState.AlreadyLoggedIn ?: return@onFailure
+                    _uiState.value = current.copy(isReconciling = false, reconcileMessage = throwable.message ?: "Errore riconciliazione")
                 }
         }
     }
