@@ -104,6 +104,15 @@ class MovementRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun insertMovementRecord(movement: Movement): Result<Unit> {
+        return try {
+            movementDao.insert(movementMapper.toEntity(movement))
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     private fun validateLocationsForType(type: MovementType, from: String?, to: String?) {
         val valid = when (type) {
             MovementType.IN -> from == null && to != null

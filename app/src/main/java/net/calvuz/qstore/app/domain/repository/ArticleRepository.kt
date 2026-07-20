@@ -13,10 +13,10 @@ import net.calvuz.qstore.app.domain.model.Inventory
 interface ArticleRepository {
 
     /**
-     * Inserisce un nuovo articolo con inventario iniziale
-     * @return true se l'inserimento è riuscito, false altrimenti
+     * Inserisce un nuovo articolo (senza inventario — l'eventuale giacenza iniziale va
+     * registrata come movimento IN, non scritta direttamente su inventory: vedi AddArticleUseCase)
      */
-    suspend fun insertArticle(article: Article, initialQuantity: Double): Result<Unit>
+    suspend fun insertArticle(article: Article): Result<Unit>
 
     /**
      * Aggiorna i dati anagrafici di un articolo

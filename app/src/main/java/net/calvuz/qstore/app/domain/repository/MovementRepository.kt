@@ -38,6 +38,14 @@ interface MovementRepository {
     suspend fun ingestPulledMovement(movement: Movement): Result<Unit>
 
     /**
+     * Inserisce un movimento come puro record storico, SENZA applicare alcun delta a
+     * inventory. Usata solo per riconciliazione/backfill quando la giacenza in inventory è
+     * già corretta e serve solo generare la riga di movimento mancante (per storico e
+     * propagazione al sync, che pusha solo movements) — vedi ReconcileInventoryMovementsUseCase.
+     */
+    suspend fun insertMovementRecord(movement: Movement): Result<Unit>
+
+    /**
      * Recupera tutti i movimenti
      */
     suspend fun getAllMovements(): Result<List<Movement>>

@@ -2,6 +2,7 @@ package net.calvuz.qstore.app.domain.usecase.article
 
 import net.calvuz.qstore.app.domain.model.Article
 import net.calvuz.qstore.app.domain.repository.ArticleRepository
+import net.calvuz.qstore.app.domain.usecase.movement.AddMovementUseCase
 import java.util.UUID
 import javax.inject.Inject
 
@@ -9,7 +10,8 @@ import javax.inject.Inject
  * Use Case per aggiungere un nuovo articolo con inventario iniziale
  */
 class AddArticleUseCase @Inject constructor(
-    private val articleRepository: ArticleRepository
+    private val articleRepository: ArticleRepository,
+    private val addMovementUseCase: AddMovementUseCase
 ) {
     /**
      * Aggiunge un nuovo articolo al magazzino
@@ -63,8 +65,25 @@ class AddArticleUseCase @Inject constructor(
             updatedAt = currentTime
         )
 
-        // Salva nel repository
-        return articleRepository.insertArticle(article, initialQuantity)
-            .map { article }
+        // Salva l'anagrafica; la giacenza iniziale (se presente) è un movimento IN, non una
+        // scrittura diretta su inventory — altrimenti non genera storico e resta invisibile
+        // al sync, che propaga solo movements (vedi memoria bug-initial-quantity-no-movement).
+        return articleRepository.insertArticle(article).fold(
+            onSuccess = {
+                if (initialQuantity > 0) {
+                    addMovementUseCase.addIncoming(
+                        articleUuid = article.uuid,
+                        quantity = initialQuantity,
+                        note = "Giacenza iniziale"
+                    ).fold(
+                        onSuccess = { Result.success(article) },
+                        onFailure = { Result.failure(it) }
+                    )
+                } else {
+                    Result.success(article)
+                }
+            },
+            onFailure = { Result.failure(it) }
+        )
     }
 }

@@ -5,9 +5,7 @@ import kotlinx.coroutines.flow.map
 import net.calvuz.qstore.app.data.local.database.ArticleDao
 import net.calvuz.qstore.app.data.local.database.ArticleImageDao
 import net.calvuz.qstore.app.data.local.database.InventoryDao
-import net.calvuz.qstore.app.data.local.database.LocationDao
 import net.calvuz.qstore.app.data.local.storage.ImageStorageManager
-import net.calvuz.qstore.app.data.local.entity.InventoryEntity
 import net.calvuz.qstore.app.data.mapper.ArticleMapper
 import net.calvuz.qstore.app.domain.model.Article
 import net.calvuz.qstore.app.domain.model.Inventory
@@ -22,7 +20,6 @@ class ArticleRepositoryImpl @Inject constructor(
     private val articleImageDao: ArticleImageDao,
     private val imageStorageManager: ImageStorageManager,
     private val inventoryDao: InventoryDao,
-    private val locationDao: LocationDao,
     private val articleMapper: ArticleMapper
 ) : ArticleRepository {
 
@@ -48,22 +45,9 @@ class ArticleRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun insertArticle(article: Article, initialQuantity: Double): Result<Unit> {
+    override suspend fun insertArticle(article: Article): Result<Unit> {
         return try {
-            // Inserisci articolo
             articleDao.insert(articleMapper.toEntity(article))
-
-            // Crea inventario iniziale sull'unica/prima ubicazione disponibile — non esiste
-            // ancora una UI per scegliere l'ubicazione in fase di creazione articolo.
-            val locationUuid = resolveDefaultLocationUuid()
-            val inventory = InventoryEntity(
-                articleUuid = article.uuid,
-                locationUuid = locationUuid,
-                currentQuantity = initialQuantity,
-                lastMovementAt = article.createdAt
-            )
-            inventoryDao.insert(inventory)
-
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -175,10 +159,4 @@ class ArticleRepositoryImpl @Inject constructor(
             Result.failure(e)
         }
     }
-
-    private suspend fun resolveDefaultLocationUuid(): String =
-        locationDao.getAll().firstOrNull()?.uuid
-            ?: throw IllegalStateException(
-                "Nessuna ubicazione disponibile — attesa almeno 'Magazzino principale' creata dalla migrazione"
-            )
 }
