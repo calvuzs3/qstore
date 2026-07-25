@@ -46,6 +46,8 @@ class SyncLocalStore @Inject constructor(
         val SINCE_PUSH = longPreferencesKey("since_push")
         val DEVICE_ID = stringPreferencesKey("device_id")
         val ALLOW_METERED_IMAGES = booleanPreferencesKey("allow_metered_images")
+        val BOUND_ORG_ID = stringPreferencesKey("bound_org_id")
+        val BOUND_ORG_NAME = stringPreferencesKey("bound_org_name")
     }
 
     /** Orologio del server — confrontato lato server con `updated_at` (di qualunque device). */
@@ -77,6 +79,37 @@ class SyncLocalStore @Inject constructor(
         val newId = UUID.randomUUID().toString()
         dataStore.edit { it[Keys.DEVICE_ID] = newId }
         return newId
+    }
+
+    /**
+     * Organizzazione a cui i dati sincronizzati di questo device sono legati — null se il
+     * device non ha ancora completato un sync con nessuna organizzazione (libero di legarsi
+     * alla prima). Vedi SyncRepositoryImpl.syncNow() per dove viene impostato e controllato.
+     */
+    suspend fun getBoundOrgId(): String? = dataStore.data.map { it[Keys.BOUND_ORG_ID] }.first()
+
+    suspend fun getBoundOrgName(): String? = dataStore.data.map { it[Keys.BOUND_ORG_NAME] }.first()
+
+    suspend fun setBoundOrganization(orgId: String, orgName: String) {
+        dataStore.edit {
+            it[Keys.BOUND_ORG_ID] = orgId
+            it[Keys.BOUND_ORG_NAME] = orgName
+        }
+    }
+
+    suspend fun clearBoundOrganization() {
+        dataStore.edit {
+            it.remove(Keys.BOUND_ORG_ID)
+            it.remove(Keys.BOUND_ORG_NAME)
+        }
+    }
+
+    /** Usata solo da SwitchOrganizationUseCase: il device riparte da zero per la nuova org. */
+    suspend fun resetSyncCursors() {
+        dataStore.edit {
+            it[Keys.SINCE_PULL] = 0L
+            it[Keys.SINCE_PUSH] = 0L
+        }
     }
 
     override fun observeAllowMeteredNetworkForImages(): Flow<Boolean> =

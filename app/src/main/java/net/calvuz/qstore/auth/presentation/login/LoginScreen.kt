@@ -79,8 +79,13 @@ fun LoginScreen(
 
     LaunchedEffect(uiState) {
         when (val state = uiState) {
-            is LoginUiState.LoginForm -> state.error?.let {
-                snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
+            is LoginUiState.LoginForm -> {
+                state.error?.let {
+                    snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
+                }
+                state.info?.let {
+                    snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Long)
+                }
             }
             is LoginUiState.OrgSelection -> state.error?.let {
                 snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Short)
@@ -100,6 +105,9 @@ fun LoginScreen(
                     snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Long)
                 }
                 state.purgeMessage?.let {
+                    snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Long)
+                }
+                state.switchMessage?.let {
                     snackbarHostState.showSnackbar(it, duration = SnackbarDuration.Long)
                 }
             }
@@ -139,7 +147,8 @@ fun LoginScreen(
                 onSyncNow = viewModel::syncNow,
                 onAllowMeteredNetworkChange = viewModel::setAllowMeteredNetwork,
                 onReconcileInventoryMovements = viewModel::reconcileInventoryMovements,
-                onPurgeDeletedData = viewModel::purgeDeletedData
+                onPurgeDeletedData = viewModel::purgeDeletedData,
+                onSwitchOrganization = viewModel::switchOrganization
             )
         }
     }
@@ -207,9 +216,11 @@ private fun AlreadyLoggedInContent(
     onSyncNow: () -> Unit,
     onAllowMeteredNetworkChange: (Boolean) -> Unit,
     onReconcileInventoryMovements: () -> Unit,
-    onPurgeDeletedData: () -> Unit
+    onPurgeDeletedData: () -> Unit,
+    onSwitchOrganization: () -> Unit
 ) {
     var showPurgeConfirmDialog by remember { mutableStateOf(false) }
+    var showSwitchOrgConfirmDialog by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -223,6 +234,46 @@ private fun AlreadyLoggedInContent(
                 Text(text = "Connesso a", style = MaterialTheme.typography.labelMedium)
                 Text(text = state.session.orgName, style = MaterialTheme.typography.titleMedium)
                 Text(text = state.session.roleCode, style = MaterialTheme.typography.bodySmall)
+            }
+        }
+
+        // Questo device ha già dati sincronizzati con un'ALTRA organizzazione (vedi
+        // GetBoundOrganizationUseCase) — sync bloccata finché l'utente non decide
+        // esplicitamente di cambiare organizzazione, cancellando i dati locali.
+        if (state.orgMismatch != null) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Dati di un'altra organizzazione su questo device",
+                        style = MaterialTheme.typography.titleSmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                    Text(
+                        text = "Questo device contiene dati sincronizzati con '${state.orgMismatch.orgName}', " +
+                            "ma hai effettuato l'accesso come '${state.session.orgName}'. Per evitare di mescolare " +
+                            "i dati delle due organizzazioni, la sincronizzazione resta disattivata finché non " +
+                            "cambi organizzazione.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                    Button(
+                        onClick = { showSwitchOrgConfirmDialog = true },
+                        enabled = !state.isSwitchingOrganization,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.error
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (state.isSwitchingOrganization) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                        } else {
+                            Text("Cambia organizzazione")
+                        }
+                    }
+                }
             }
         }
 
@@ -248,7 +299,7 @@ private fun AlreadyLoggedInContent(
 
         Button(
             onClick = onSyncNow,
-            enabled = !state.isSyncing && !state.isLoggingOut,
+            enabled = !state.isSyncing && !state.isLoggingOut && state.orgMismatch == null,
             modifier = Modifier.fillMaxWidth()
         ) {
             if (state.isSyncing) {
@@ -309,6 +360,41 @@ private fun AlreadyLoggedInContent(
                 },
                 dismissButton = {
                     TextButton(onClick = { showPurgeConfirmDialog = false }) {
+                        Text("Annulla")
+                    }
+                }
+            )
+        }
+
+        if (showSwitchOrgConfirmDialog) {
+            AlertDialog(
+                onDismissRequest = { showSwitchOrgConfirmDialog = false },
+                title = { Text("Cambia organizzazione") },
+                text = {
+                    Text(
+                        "Cancella per sempre TUTTI i dati locali di questo device (articoli, " +
+                            "categorie, magazzini, movimenti, foto) per liberarlo dall'organizzazione " +
+                            "'${state.orgMismatch?.orgName}' e permettergli di usare " +
+                            "'${state.session.orgName}'. Verrà creato automaticamente un backup di " +
+                            "sicurezza prima di procedere, ma l'operazione resta irreversibile: " +
+                            "dopo, dovrai accedere di nuovo."
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showSwitchOrgConfirmDialog = false
+                            onSwitchOrganization()
+                        },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error
+                        )
+                    ) {
+                        Text("Cancella e cambia")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showSwitchOrgConfirmDialog = false }) {
                         Text("Annulla")
                     }
                 }

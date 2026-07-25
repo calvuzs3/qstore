@@ -13,6 +13,7 @@ import net.calvuz.qstore.app.data.local.database.ArticleImageDao
 import net.calvuz.qstore.app.data.local.database.ArticleLocationThresholdDao
 import net.calvuz.qstore.app.data.local.database.LocationDao
 import net.calvuz.qstore.app.data.local.database.MovementDao
+import net.calvuz.qstore.app.data.local.database.QuickStoreDatabase
 import net.calvuz.qstore.app.data.local.storage.ImageStorageManager
 import net.calvuz.qstore.app.data.local.entity.ArticleCategoryEntity
 import net.calvuz.qstore.app.data.local.entity.ArticleEntity
@@ -23,6 +24,7 @@ import net.calvuz.qstore.app.domain.model.Movement
 import net.calvuz.qstore.app.domain.model.enum.MovementType
 import net.calvuz.qstore.app.domain.repository.MovementRepository
 import net.calvuz.qstore.auth.domain.repository.AuthRepository
+import net.calvuz.qstore.backup.domain.repository.BackupRepository
 import net.calvuz.qstore.categories.data.local.ArticleCategoryDao
 import net.calvuz.qstore.sync.data.SyncLocalStore
 import net.calvuz.qstore.sync.data.remote.SyncApi
@@ -34,12 +36,15 @@ import net.calvuz.qstore.shared.dto.LocationDto
 import net.calvuz.qstore.shared.dto.MovementDto
 import net.calvuz.qstore.shared.dto.SyncPullResponse
 import net.calvuz.qstore.shared.dto.SyncPushRequest
+import net.calvuz.qstore.sync.domain.model.BoundOrganization
 import net.calvuz.qstore.sync.domain.model.PurgeSummary
 import net.calvuz.qstore.sync.domain.model.SyncException
 import net.calvuz.qstore.sync.domain.model.SyncSummary
 import net.calvuz.qstore.sync.domain.repository.SyncRepository
 import net.calvuz.qstore.sync.data.worker.ImageTransferWorker
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import timber.log.Timber
 import javax.inject.Inject
 
@@ -72,9 +77,11 @@ private val log = Timber.tag("Sync")
  */
 class SyncRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val database: QuickStoreDatabase,
     private val syncApi: SyncApi,
     private val syncLocalStore: SyncLocalStore,
     private val authRepository: AuthRepository,
+    private val backupRepository: BackupRepository,
     private val articleCategoryDao: ArticleCategoryDao,
     private val articleDao: ArticleDao,
     private val locationDao: LocationDao,
@@ -89,6 +96,24 @@ class SyncRepositoryImpl @Inject constructor(
         return try {
             val session = authRepository.observeSession().first()
                 ?: throw SyncException("Devi accedere (Impostazioni > Account) prima di sincronizzare")
+
+            // Un device resta legato alla prima organizzazione con cui sincronizza con successo
+            // — mai un DB locale che mescola dati di due org diverse (vedi la classe
+            // BoundOrganization e SwitchOrganizationUseCase per come se ne esce). Controllo
+            // fatto qui, prima di toccare rete o DB: se il device è legato a un'altra org,
+            // il sync fallisce subito con un messaggio chiaro invece di mischiare dati.
+            val boundOrgId = syncLocalStore.getBoundOrgId()
+            if (boundOrgId != null && boundOrgId != session.orgId) {
+                val boundOrgName = syncLocalStore.getBoundOrgName() ?: boundOrgId
+                throw SyncException(
+                    "Questo device ha dati sincronizzati con l'organizzazione '$boundOrgName'. " +
+                        "Per usare '${session.orgName}' devi prima cambiare organizzazione da Impostazioni > Account."
+                )
+            }
+            if (boundOrgId == null) {
+                syncLocalStore.setBoundOrganization(session.orgId, session.orgName)
+                log.i("device bound to organization '${session.orgName}' (${session.orgId})")
+            }
 
             val sincePush = syncLocalStore.getSincePush()
             val sincePull = syncLocalStore.getSincePull()
@@ -189,6 +214,48 @@ class SyncRepositoryImpl @Inject constructor(
             Result.success(summary)
         } catch (e: Exception) {
             log.e(e, "purgeDeletedData failed")
+            Result.failure(e)
+        }
+    }
+
+    override suspend fun getBoundOrganization(): BoundOrganization? {
+        val orgId = syncLocalStore.getBoundOrgId() ?: return null
+        return BoundOrganization(orgId, syncLocalStore.getBoundOrgName() ?: orgId)
+    }
+
+    /**
+     * Wipe totale e irreversibile: DB Room + JPEG su disco + cursori di sync, per liberare il
+     * device da un'organizzazione e permettergli di legarsi a un'altra (vedi
+     * SwitchOrganizationUseCase, mai chiamata senza conferma esplicita dell'utente). `deviceId`
+     * NON viene toccato: identifica il device fisico, non ha nulla a che fare con l'org.
+     *
+     * Backup di sicurezza automatico prima del wipe, stessa logica precauzionale già usata da
+     * BackupRepositoryImpl prima di un restore — "non blocchiamo se fallisce, è solo
+     * precauzionale" (limite noto: il formato di backup non porta ancora `locations`, vedi
+     * CLAUDE.md "Backup Format").
+     */
+    override suspend fun switchOrganization(): Result<Unit> {
+        return try {
+            log.w("switchOrganization: wiping all local data (DB + images) to leave the current organization")
+            try {
+                backupRepository.createBackupSync()
+            } catch (e: Exception) {
+                log.w(e, "switchOrganization: safety backup failed, proceeding anyway (precauzionale)")
+            }
+
+            // clearAllTables() è una chiamata Room bloccante (non una suspend fun generata),
+            // va spostata fuori dal thread del chiamante esplicitamente.
+            withContext(Dispatchers.IO) {
+                database.clearAllTables()
+                imageStorageManager.deleteAllImages()
+            }
+            syncLocalStore.resetSyncCursors()
+            syncLocalStore.clearBoundOrganization()
+
+            log.i("switchOrganization done")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            log.e(e, "switchOrganization failed")
             Result.failure(e)
         }
     }

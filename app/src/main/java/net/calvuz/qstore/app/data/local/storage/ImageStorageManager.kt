@@ -165,6 +165,24 @@ class ImageStorageManager @Inject constructor(
     }
 
     /**
+     * Cancella TUTTE le immagini di TUTTI gli articoli — usata solo da
+     * SyncRepositoryImpl.switchOrganization(), quando si abbandona per sempre lo stato locale
+     * per legare il device a un'altra organizzazione (nessuna foto avrà più senso per la
+     * nuova org). Da non confondere con deleteAllImagesForArticle(), che è per un solo articolo.
+     */
+    fun deleteAllImages(): Result<Unit> {
+        return try {
+            if (imagesDir.exists()) {
+                imagesDir.deleteRecursively()
+            }
+            imagesDir.mkdirs()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Ottiene il path completo di un'immagine
      */
     fun getFullPath(relativePath: String): String {

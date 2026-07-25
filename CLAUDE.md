@@ -119,9 +119,14 @@ Analisi già fatta in questa sessione, utile per ripartire:
 4. UI di gestione membership (invita/cambia ruolo/rimuovi) e lettura audit log: gli
    endpoint server esistono (`quickstore-server/CLAUDE.md` sezione 9), nessuna schermata
    Android li usa ancora.
-5. `org_id` sulle entity sincronizzate: deciso di **non** aggiungerlo (i DTO di rete non lo
-   portano comunque, lo inietta il server dal JWT) a meno che non emerga un vero bisogno
-   di isolare dati multi-org sullo stesso device.
+5. ~~`org_id` sulle entity sincronizzate~~ — **chiuso il 2026-07-25**, vedi sezione "Sync" più
+   sotto ("Isolamento multi-organizzazione (bound organization)"). Non è stato aggiunto un
+   `org_id` per riga (i DTO di rete non lo portano comunque, lo inietta il server dal JWT):
+   invece, il device si lega alla prima organizzazione con cui sincronizza con successo, e un
+   login con un'organizzazione diversa blocca la sync finché l'utente non conferma
+   esplicitamente un wipe completo dei dati locali. Il caso "furgone vs sede" che sembrava
+   richiedere questo lavoro era in realtà `locations`/`TRANSFER`, già implementato — vedi
+   sezione "Database Schema" e `AddMovementBottomSheet`.
 6. Il caso più raro in cui l'orologio di un singolo device va indietro su se stesso
    (residuo del fix clock-skew sopra) — richiederebbe un flag dirty locale + un contatore
    monotono lato server, quindi anche una migrazione di `quickstore-server`.
@@ -316,6 +321,57 @@ Soft-deleted rows are invisible everywhere (`is_deleted = 0` filters) but were n
     AND id NOT IN (SELECT category_id FROM articles);
   ```
   If this ever needs to become a scheduled job, it needs a per-device/membership "last synced at" timestamp first (doesn't exist today) so the job can confirm every device is past the cutoff before deleting — otherwise a device offline longer than the retention window silently ends up with permanently orphaned local data (see the same reasoning in `PurgeDeletedDataUseCase` above, mirrored server-side).
+
+### Isolamento multi-organizzazione (bound organization)
+
+**Gap trovato e chiuso il 2026-07-25**: `AuthRepositoryImpl.logout()` cancella solo il token
+(`TokenStore.clear()`), mai il DB Room locale; `login()`/`selectOrganization()` non
+verificavano mai a quale organizzazione appartenessero i dati locali già presenti. In un
+sistema multi-tenant come `quickstore-server`, questo significa che un logout seguito da un
+login su un'organizzazione **diversa**, sullo stesso device, avrebbe mescolato silenziosamente
+i dati di due organizzazioni nello stesso DB — con il rischio concreto che una modifica
+locale a un articolo dell'org A, pushata mentre autenticati come org B, venisse riassegnata
+all'org B dal server (che stampa l'org dal JWT, non dal contenuto della riga). Non è mai stato
+un problema pratico per un utente con una sola organizzazione, ma l'app è pubblicata sul Play
+Store — un altro utente multi-org l'avrebbe incontrato.
+
+Non è stato aggiunto un `org_id` su ogni riga sincronizzata (avrebbe richiesto toccare ogni
+entity, DAO e query di lettura solo per un caso che nella pratica non richiede la
+**coesistenza** di più org sullo stesso device, solo di evitarne la **mescolanza**). Soluzione
+scelta, più leggera: il device si lega ("bind") alla prima organizzazione con cui sincronizza
+con successo, e un tentativo di sincronizzare con un'organizzazione diversa viene bloccato
+finché l'utente non sceglie esplicitamente di cambiare organizzazione, cancellando tutti i
+dati locali.
+
+- **`SyncLocalStore`**: due nuove chiavi, `bound_org_id`/`bound_org_name`, accanto ai cursori
+  esistenti — stesso DataStore `sync_state`, stesso stile "primitivi, non domain model"
+  (`getBoundOrgId()`/`getBoundOrgName()`/`setBoundOrganization()`/`clearBoundOrganization()`).
+- **`SyncRepositoryImpl.syncNow()`**: primo controllo eseguito, prima di toccare rete o DB.
+  Se `boundOrgId` è impostato e diverso da `session.orgId` → `SyncException` immediata con
+  messaggio pronto per l'utente, niente push/pull. Se `boundOrgId` è `null` (primo sync in
+  assoluto, o dopo un cambio organizzazione) → il device si lega ora alla `session.orgId`
+  corrente. Un device senza mai un sync riuscito resta libero di legarsi alla prima org che
+  incontra.
+- **`GetBoundOrganizationUseCase`**: usato da `LoginViewModel` subito dopo un login/selezione
+  org riuscita (non solo al tap su "Sincronizza ora") — così l'utente vede l'avviso
+  immediatamente invece di scoprirlo solo dopo aver premuto sync. Popola
+  `LoginUiState.AlreadyLoggedIn.orgMismatch`, che se non-null disabilita il bottone
+  "Sincronizza ora" e mostra una card di avviso con il nome dell'organizzazione già presente
+  sul device.
+- **`SwitchOrganizationUseCase` / `SyncRepositoryImpl.switchOrganization()`**: l'unica via
+  d'uscita, dietro conferma esplicita (`AlertDialog`, bottone "Cambia organizzazione" nella
+  card di avviso). Wipe totale e irreversibile: `QuickStoreDatabase.clearAllTables()` (via
+  `withContext(Dispatchers.IO)`, è una chiamata Room bloccante, non una suspend fun generata)
+  + `ImageStorageManager.deleteAllImages()` (nuovo metodo, rimuove l'intera cartella
+  `article_images/`, non solo quelle di un articolo) + reset dei cursori di sync
+  (`sincePush`/`sincePull` a 0) + `clearBoundOrganization()`. `deviceId` NON viene toccato —
+  identifica il device fisico, non ha nulla a che fare con l'organizzazione. Prima del wipe,
+  un backup di sicurezza automatico (`BackupRepository.createBackupSync()`, "non blocchiamo se
+  fallisce, è solo precauzionale") — stessa identica logica già usata da
+  `BackupRepositoryImpl` prima di un restore, stesso limite noto (non porta ancora
+  `locations`, vedi "Backup Format" più sotto). Dopo il wipe, `LoginViewModel.switchOrganization()`
+  chiama anche `logoutUseCase()` e torna al form di login: l'utente accede di nuovo con
+  l'organizzazione che vuole usare, che si legherà al device al prossimo sync riuscito.
 
 ### Photo transfer (`ImageTransferWorker`)
 

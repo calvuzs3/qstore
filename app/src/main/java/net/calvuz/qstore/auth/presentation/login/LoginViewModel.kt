@@ -16,9 +16,12 @@ import net.calvuz.qstore.auth.domain.usecase.LogoutUseCase
 import net.calvuz.qstore.auth.domain.usecase.ObserveSessionUseCase
 import net.calvuz.qstore.auth.domain.usecase.SelectOrganizationUseCase
 import net.calvuz.qstore.app.domain.usecase.movement.ReconcileInventoryMovementsUseCase
+import net.calvuz.qstore.sync.domain.model.BoundOrganization
+import net.calvuz.qstore.sync.domain.usecase.GetBoundOrganizationUseCase
 import net.calvuz.qstore.sync.domain.usecase.ObserveAllowMeteredNetworkUseCase
 import net.calvuz.qstore.sync.domain.usecase.PurgeDeletedDataUseCase
 import net.calvuz.qstore.sync.domain.usecase.SetAllowMeteredNetworkUseCase
+import net.calvuz.qstore.sync.domain.usecase.SwitchOrganizationUseCase
 import net.calvuz.qstore.sync.domain.usecase.SyncNowUseCase
 import javax.inject.Inject
 
@@ -27,7 +30,10 @@ sealed class LoginUiState {
         val email: String = "",
         val password: String = "",
         val isLoading: Boolean = false,
-        val error: String? = null
+        val error: String? = null,
+        // Messaggio informativo one-shot, es. dopo un cambio organizzazione riuscito — non è
+        // un errore, riusa lo stesso canale snackbar di `error` lato UI ma semanticamente diverso.
+        val info: String? = null
     ) : LoginUiState()
 
     data class OrgSelection(
@@ -53,7 +59,14 @@ sealed class LoginUiState {
         val isReconciling: Boolean = false,
         val reconcileMessage: String? = null,
         val isPurging: Boolean = false,
-        val purgeMessage: String? = null
+        val purgeMessage: String? = null,
+        // Non-null quando questo device ha già dati sincronizzati con un'ALTRA organizzazione
+        // rispetto a quella appena autenticata — vedi GetBoundOrganizationUseCase. Finché non
+        // nullo, "Sincronizza ora" va disabilitato: SyncRepositoryImpl.syncNow() lo rifiuterebbe
+        // comunque, ma bloccarlo qui evita all'utente di scoprirlo solo dopo aver premuto sync.
+        val orgMismatch: BoundOrganization? = null,
+        val isSwitchingOrganization: Boolean = false,
+        val switchMessage: String? = null
     ) : LoginUiState()
 }
 
@@ -64,6 +77,8 @@ class LoginViewModel @Inject constructor(
     private val logoutUseCase: LogoutUseCase,
     private val syncNowUseCase: SyncNowUseCase,
     private val purgeDeletedDataUseCase: PurgeDeletedDataUseCase,
+    private val getBoundOrganizationUseCase: GetBoundOrganizationUseCase,
+    private val switchOrganizationUseCase: SwitchOrganizationUseCase,
     private val reconcileInventoryMovementsUseCase: ReconcileInventoryMovementsUseCase,
     private val observeAllowMeteredNetworkUseCase: ObserveAllowMeteredNetworkUseCase,
     private val setAllowMeteredNetworkUseCase: SetAllowMeteredNetworkUseCase,
@@ -76,23 +91,34 @@ class LoginViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             observeSessionUseCase().first()?.let { session ->
-                _uiState.value = LoginUiState.AlreadyLoggedIn(
-                    session = session,
-                    allowMeteredNetwork = observeAllowMeteredNetworkUseCase().first()
-                )
+                _uiState.value = buildAlreadyLoggedInState(session, justLoggedIn = false)
             }
         }
     }
 
+    /**
+     * Costruisce lo stato AlreadyLoggedIn includendo il controllo org — condiviso da init{},
+     * login fresco e selezione organizzazione così il controllo non si scorda in un punto.
+     */
+    private suspend fun buildAlreadyLoggedInState(session: Session, justLoggedIn: Boolean): LoginUiState.AlreadyLoggedIn {
+        val bound = getBoundOrganizationUseCase()
+        return LoginUiState.AlreadyLoggedIn(
+            session = session,
+            justLoggedIn = justLoggedIn,
+            allowMeteredNetwork = observeAllowMeteredNetworkUseCase().first(),
+            orgMismatch = bound?.takeIf { it.orgId != session.orgId }
+        )
+    }
+
     fun updateEmail(email: String) {
         (_uiState.value as? LoginUiState.LoginForm)?.let {
-            _uiState.value = it.copy(email = email, error = null)
+            _uiState.value = it.copy(email = email, error = null, info = null)
         }
     }
 
     fun updatePassword(password: String) {
         (_uiState.value as? LoginUiState.LoginForm)?.let {
-            _uiState.value = it.copy(password = password, error = null)
+            _uiState.value = it.copy(password = password, error = null, info = null)
         }
     }
 
@@ -104,11 +130,8 @@ class LoginViewModel @Inject constructor(
             loginUseCase(form.email, form.password)
                 .onSuccess { result ->
                     _uiState.value = when (result) {
-                        is LoginResult.Authenticated -> LoginUiState.AlreadyLoggedIn(
-                            session = result.session,
-                            justLoggedIn = true,
-                            allowMeteredNetwork = observeAllowMeteredNetworkUseCase().first()
-                        )
+                        is LoginResult.Authenticated ->
+                            buildAlreadyLoggedInState(result.session, justLoggedIn = true)
                         is LoginResult.OrganizationSelectionRequired -> LoginUiState.OrgSelection(
                             pendingToken = result.pendingToken,
                             organizations = result.organizations
@@ -128,11 +151,7 @@ class LoginViewModel @Inject constructor(
         viewModelScope.launch {
             selectOrganizationUseCase(state.pendingToken, orgId)
                 .onSuccess { session ->
-                    _uiState.value = LoginUiState.AlreadyLoggedIn(
-                        session = session,
-                        justLoggedIn = true,
-                        allowMeteredNetwork = observeAllowMeteredNetworkUseCase().first()
-                    )
+                    _uiState.value = buildAlreadyLoggedInState(session, justLoggedIn = true)
                 }
                 .onFailure { throwable ->
                     _uiState.value = state.copy(isLoading = false, error = throwable.message ?: "Errore di selezione organizzazione")
@@ -209,6 +228,34 @@ class LoginViewModel @Inject constructor(
                 .onFailure { throwable ->
                     val current = _uiState.value as? LoginUiState.AlreadyLoggedIn ?: return@onFailure
                     _uiState.value = current.copy(isPurging = false, purgeMessage = throwable.message ?: "Errore durante la pulizia")
+                }
+        }
+    }
+
+    /**
+     * Cambio organizzazione esplicito e a richiesta: cancella per sempre tutti i dati locali
+     * (vedi SwitchOrganizationUseCase — un backup di sicurezza automatico parte da solo prima
+     * del wipe) e disconnette, riportando l'utente al form di login per accedere con
+     * l'organizzazione diversa. Va sempre confermata da un dialog lato UI — è irreversibile.
+     */
+    fun switchOrganization() {
+        val state = _uiState.value as? LoginUiState.AlreadyLoggedIn ?: return
+        _uiState.value = state.copy(isSwitchingOrganization = true, switchMessage = null)
+
+        viewModelScope.launch {
+            switchOrganizationUseCase()
+                .onSuccess {
+                    logoutUseCase()
+                    _uiState.value = LoginUiState.LoginForm(
+                        info = "Dati locali cancellati. Accedi con la nuova organizzazione."
+                    )
+                }
+                .onFailure { throwable ->
+                    val current = _uiState.value as? LoginUiState.AlreadyLoggedIn ?: return@onFailure
+                    _uiState.value = current.copy(
+                        isSwitchingOrganization = false,
+                        switchMessage = throwable.message ?: "Errore durante il cambio organizzazione"
+                    )
                 }
         }
     }

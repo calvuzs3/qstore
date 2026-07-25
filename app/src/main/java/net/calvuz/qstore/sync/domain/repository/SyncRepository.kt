@@ -1,5 +1,6 @@
 package net.calvuz.qstore.sync.domain.repository
 
+import net.calvuz.qstore.sync.domain.model.BoundOrganization
 import net.calvuz.qstore.sync.domain.model.PurgeSummary
 import net.calvuz.qstore.sync.domain.model.SyncSummary
 
@@ -17,4 +18,14 @@ interface SyncRepository {
      * di push (non purga mai una cancellazione non ancora propagata al server).
      */
     suspend fun purgeDeletedData(retentionMillis: Long): Result<PurgeSummary>
+
+    /** Organizzazione a cui i dati locali sono legati — null se il device non ha mai sincronizzato. */
+    suspend fun getBoundOrganization(): BoundOrganization?
+
+    /**
+     * Cancella per sempre TUTTI i dati locali (DB + JPEG) per liberare il device e permettergli
+     * di legarsi a un'altra organizzazione. Vedi SwitchOrganizationUseCase — richiede conferma
+     * esplicita dell'utente prima di essere chiamata, è irreversibile.
+     */
+    suspend fun switchOrganization(): Result<Unit>
 }
