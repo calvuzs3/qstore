@@ -38,10 +38,24 @@ server (che già sapeva gestirlo in arrivo, nessuna modifica server necessaria).
 `movements` resta escluso di proposito — log append-only. `DeleteArticleUseCase` non
 cancella più inventario/movimenti (restano come storico anche per un articolo cancellato,
 cambio di comportamento intenzionale); le immagini dell'articolo vengono invece
-soft-eliminate esplicitamente in codice, incluso il file JPEG fisico rimosso subito dal
-device. **Testata dall'utente, esito riportato come "funziona in qualche modo, non
-sembra perfetto"** — non ancora chiarito cosa esattamente non torni, da riprendere con i
-log (tag `Sync`) alla prossima occasione utile.
+soft-eliminate esplicitamente in codice. Il JPEG fisico NON viene rimosso a questo punto
+(fix del 2026-07-25, vedi sotto) — resta sul device fino a un purge esplicito, per non
+perderlo per sempre prima che sia mai possibile un restore. **Testata dall'utente, esito
+riportato come "funziona in qualche modo, non
+sembra perfetto"** — causa isolata e corretta il 2026-07-25 (vedi sezione "Sync" più sotto,
+"Bug found & fixed: physical DELETE on pull cascaded away history"): il pull applicava una
+cancellazione remota con un `DELETE` fisico che, per via del `FK CASCADE`, si portava via
+anche `inventory`/`movements`/immagini che il soft-delete locale intendeva preservare —
+capitava persino sul device che aveva originato la cancellazione, al giro di sync
+successivo. Fix: il pull ora applica sempre un soft-delete, mai un `DELETE` fisico; la
+cancellazione fisica vera e propria è stata spostata in un nuovo `PurgeDeletedDataUseCase`
+esplicito e a richiesta dell'utente (bottone "Pulizia dati cancellati" in Settings >
+Account), mai automatico né lato client né lato server (decisione di prodotto esplicita).
+Stessa logica estesa lo stesso giorno ai JPEG fisici: cancellavano il file subito al
+soft-delete (locale, remoto via pull, singola foto) — corretto per coerenza con "nessuna
+cancellazione fisica finché non è esplicita": ora il file resta sul device fino al purge,
+che lo rimuove per davvero (deve farlo esplicitamente prima del `DELETE` dell'articolo, dato
+che il `FK CASCADE` toglierebbe la riga DB senza eseguire codice Kotlin, perdendo il path).
 
 **Bug di clock skew trovato e corretto durante il test delle cancellazioni**: il cursore
 `since` era condiviso tra push e pull ma confrontava clock diversi (vedi sezione "Sync"
@@ -68,13 +82,16 @@ Analisi già fatta in questa sessione, utile per ripartire:
   all'articolo" da "cancellato per conto suo" — ripristinare un articolo ripristinerebbe
   *tutte* le sue immagini attualmente segnate cancellate, incluse eventuali cancellazioni
   indipendenti.
-- Immagini: il JPEG fisico è già stato rimosso dal device alla cancellazione. Se era
-  già stato caricato (`is_uploaded=true`) il file esiste ancora sul server (nessun
-  endpoint di cancellazione fisica lato server, solo upload/download, vedi
-  `quickstore-server/ImageRoutes.kt`) — si può riscaricare, `ImageTransferWorker` lo fa
-  già in automatico non appena il metadato torna `is_deleted=false` col file mancante su
-  disco. Se non era mai stata caricata, il JPEG è perso per sempre, restano solo i
-  descrittori OpenCV.
+- Immagini: dal fix del 2026-07-25 (vedi sezione "Sync" più sotto) il JPEG fisico NON viene
+  più rimosso dal device alla cancellazione — resta lì finché non arriva un purge esplicito
+  (`PurgeDeletedDataUseCase`), quindi un restore prima di quel momento ritrova il file già
+  al suo posto, nessun ridownload necessario. Se il purge è già passato: se l'immagine era
+  stata caricata (`is_uploaded=true`) il file esiste ancora sul server (nessun endpoint di
+  cancellazione fisica lato server, solo upload/download, vedi
+  `quickstore-server/ImageRoutes.kt`) — si può riscaricare, `ImageTransferWorker` lo fa già
+  in automatico non appena il metadato torna `is_deleted=false` col file mancante su disco.
+  Se non era mai stata caricata, il JPEG è perso per sempre, restano solo i descrittori
+  OpenCV — ma solo in questo caso ormai raro (serve sia il purge sia un mancato upload).
 - Nel frattempo, ripristino manuale possibile via SQL diretto sul server Postgres
   (`updated_at` è `BIGINT` epoch-millis, non un `TIMESTAMP` — serve
   `(extract(epoch from now()) * 1000)::bigint`, non `NOW()` da solo):
@@ -89,8 +106,9 @@ Analisi già fatta in questa sessione, utile per ripartire:
   Il prossimo pull di qualunque device lo riprende come un normale aggiornamento.
 
 **Non ancora fatto** (elencato per priorità presunta, nessun ordine impegnativo):
-1. Isolare cosa intende l'utente con "non sembra perfetto" sulla propagazione delle
-   cancellazioni — serve un altro giro di test con i log Timber (tag `Sync`) attivi.
+1. ~~Isolare cosa intende l'utente con "non sembra perfetto"~~ — fatto il 2026-07-25, vedi
+   sopra. Da verificare sul dispositivo reale alla prossima occasione utile (il fix compila
+   ma non è ancora stato testato end-to-end con due device).
 2. Use case + UI per il restore di articoli/immagini cancellati (vedi analisi sopra) —
    include la chiusura del gap sulle soglie.
 3. Canale WebSocket (`ws /sync/ws`) per il nudge near-realtime + `WorkManager` per una
@@ -255,12 +273,49 @@ First working version of the `sync` module: a **manual** "Sincronizza ora" butto
 - **Two separate cursors**, not one: `sincePush` (this device's own clock) and `sincePull` (the server's clock, from `pullResponse.serverTimestamp`), both in `SyncLocalStore` (its own DataStore, `sync_state`) alongside a stable per-install `deviceId`. Bug found and fixed: a single shared `since` (server clock) compared against locally-written `updated_at` (device clock) stops working the moment the two clocks drift apart — a device whose clock is even slightly behind the server's can never push anything again, deletions included, because the cursor becomes higher than any `updated_at` that device can produce. Common on emulators. `sincePush` is always captured with the device's own `System.currentTimeMillis()`, right before querying `getUpdatedSince()`, so it only ever gets compared against timestamps from the same clock. This is a client-only fix — the server already stores whatever `updatedAt` the pushing device sent verbatim (`SyncServerRepository.push`), it doesn't re-stamp it, so no server change was needed. **Not a timezone issue** — epoch millis are timezone-independent; two devices in different timezones with correctly-synced clocks are unaffected. A deeper fix (a local dirty flag instead of a timestamp cursor for push, a server-assigned monotonic sequence instead of client-provided `updatedAt` for pull ordering) would also cover the rarer case of a single device's own clock jumping backward, but needs a `quickstore-server` migration too — deliberately deferred, this client-only split covers the actual bug observed.
 - Every log line in the sync path is tagged `"Sync"` via Timber (planted only in debug builds, `QuickStoreApplication.onCreate`) — `SyncRepositoryImpl`/`SyncApi`/`ImagesApi` all log push/pull payload sizes per entity, every upsert decision (insert/update/skip-stale/delete), and non-success HTTP responses with their body. Use `adb logcat -s Sync:*` when diagnosing a sync issue instead of guessing.
 
-**Deletion propagation** (MIGRATION_6_7): `article_categories`/`articles`/`locations`/`article_location_thresholds`/`article_images` all have `is_deleted`. A local delete is now a soft-delete (`is_deleted=1`, `updated_at=now`) — picked up by the same `getUpdatedSince(cursor)` push query used for regular updates (a deletion is conceptually just another update) and pushed with `isDeleted=true` in the DTO (`toDto()` now reads the real field instead of hardcoding `false`). The server already knew how to store an incoming `isDeleted` (no server change needed). A remote deletion (`isDeleted=true` arriving via pull) is still applied as a **hard** local `DELETE` — no need to keep a local tombstone for something the server has already confirmed gone; this also still triggers Room's `FK CASCADE` for that direction (pre-existing behavior, unchanged). `movements` is deliberately excluded — it's an append-only log, "deleting" a row doesn't fit the model.
+**Deletion propagation** (MIGRATION_6_7): `article_categories`/`articles`/`locations`/`article_location_thresholds`/`article_images` all have `is_deleted`. A local delete is now a soft-delete (`is_deleted=1`, `updated_at=now`) — picked up by the same `getUpdatedSince(cursor)` push query used for regular updates (a deletion is conceptually just another update) and pushed with `isDeleted=true` in the DTO (`toDto()` now reads the real field instead of hardcoding `false`). The server already knew how to store an incoming `isDeleted` (no server change needed). A remote deletion (`isDeleted=true` arriving via pull) is **also applied as a soft-delete locally, never a hard `DELETE`** — see "Bug found & fixed: physical DELETE on pull cascaded away history" below for why this changed. `movements` is deliberately excluded — it's an append-only log, "deleting" a row doesn't fit the model; its only path to disappearing is the `FK CASCADE` firing once the parent article is eventually *purged* for real (see "Purge" below), not during ordinary sync.
 - Read-facing DAO queries (`getAll`/`observeAll`/`search*`/`count*`/`hasImages`/etc.) filter `is_deleted = 0`; sync-internal queries (`getByUuid`, `getUpdatedSince`, `getPendingUpload`) do **not** — they need to see soft-deleted rows (LWW comparison, push collection). Where the same lookup serves both a user-facing repository method and sync, the filter is applied in the repository layer instead (e.g. `ArticleRepositoryImpl.getByUuid`), not the DAO.
-- Deleting an article (`DeleteArticleUseCase`) no longer wipes its inventory/movements — Room's FK `CASCADE` doesn't fire on an `UPDATE` (soft-delete), only a real `DELETE`. This is an intentional behavior change: movements stay as an append-only historical record even for a deleted article; inventory rows go stale but harmless (the article is hidden from every list/search anyway). The article's own images ARE explicitly soft-deleted in code (`ArticleImageDao.markAllDeletedByArticleUuid`), plus their physical JPEG files removed immediately from disk — there's no FK cascade to rely on anymore, so this cascade is now explicit application code, not the database.
+- Deleting an article (`DeleteArticleUseCase`) no longer wipes its inventory/movements — Room's FK `CASCADE` doesn't fire on an `UPDATE` (soft-delete), only a real `DELETE`. This is an intentional behavior change: movements stay as an append-only historical record even for a deleted article; inventory rows go stale but harmless (the article is hidden from every list/search anyway). The article's own images ARE explicitly soft-deleted in code (`ArticleImageDao.markAllDeletedByArticleUuid`) — there's no FK cascade to rely on anymore, so this cascade is now explicit application code, not the database. Their physical JPEG files are **not** touched at this point (fixed 2026-07-25 — see "Purge" below): deleting them immediately would lose an unuploaded photo forever with no way back, before any restore feature exists.
 - `locations` and `article_location_thresholds` got the `is_deleted` column for schema symmetry with the server, but have **no delete flow wired up** — neither has a UI or a `repository.delete()` today, so nothing sets it yet.
 - `article_images` also gained a real `updated_at` column (previously `created_at` was reused as a stand-in, which can't represent a later deletion without corrupting the true creation timestamp).
 - No WebSocket client, no periodic background sync — the metadata sync only happens when the user taps the button (the photo transfer below runs automatically after it, that part is not manual).
+
+**Bug found & fixed (2026-07-25): physical `DELETE` on pull cascaded away history it was supposed to preserve.** This turned out to be the root cause of the earlier "funziona in qualche modo, non sembra perfetto" report on deletion propagation. `articles.uuid` is referenced with `onDelete = CASCADE` by `inventory`/`movements`/`article_location_thresholds`/`article_images`. The original pull-side code (`SyncRepositoryImpl.upsertArticle`/`upsertCategory`/`upsertLocation`/`upsertThreshold`/`upsertImage`) applied an incoming `isDeleted=true` as a real `@Delete` DAO call — reasoned at the time as "no need to keep a tombstone for something the server already confirmed gone", which is true for the row itself but ignores that Room's `CASCADE` also destroys the *children*. Since push and pull run in the same `syncNow()` call, the article a device had just soft-deleted (deliberately keeping its movements/inventory as history) would very likely come back in that same pull with `isDeleted=true` and get hard-deleted — wiping the very history `DeleteArticleUseCase` had just preserved, on the originating device itself, not just on others. Fixed by making the pull-side handler soft-delete (`markDeleted(uuid, updatedAt)`) instead of physically deleting, for all five entities — converging every device (including the originating one) to the same "soft-deleted forever, no automatic cascade" state. Physical deletion is now the sole responsibility of the explicit purge below.
+
+### Purge (explicit, user-triggered — never automatic)
+
+Soft-deleted rows are invisible everywhere (`is_deleted = 0` filters) but were never being physically removed at all after the fix above — by design, per explicit product decision: **no automatic time-based physical deletion, local or remote — and that now covers the JPEG files too, not just DB rows** (see the dedicated paragraph below, fixed the same day). `PurgeDeletedDataUseCase` (`sync/domain/usecase`) is a manual, user-triggered cleanup — "Pulizia dati cancellati" button in Settings > Account (`LoginScreen`/`LoginViewModel`), behind a confirmation `AlertDialog` since it's irreversible.
+
+- Retention: 90 days, hardcoded in `PurgeDeletedDataUseCase.RETENTION_MILLIS` (not user-configurable — no request for that yet, easy to change if needed).
+- Safety cutoff: `SyncRepositoryImpl.purgeDeletedData()` never purges a row more recent than `min(now - retention, sincePush)` — a soft-delete not yet pushed to the server must never be purged locally, or the deletion would never reach the server at all. A device with no session/never synced has `sincePush=0`, so purge is a safe no-op for it (correct, not a bug — the tombstones are already invisible everywhere, the only cost is disk space).
+- Order: physical JPEGs first (`ArticleImageDao.getPurgeable(cutoff)` fetches every `is_deleted=1` image row old enough — both independently-deleted photos and images belonging to an article about to be purged — then each `imagePath` is deleted via `ImageStorageManager` *before* touching any DB row); then `articles` (`ArticleDao.purgeDeleted` — real `DELETE`, `FK CASCADE` takes `inventory`/`movements`/`article_location_thresholds`/`article_images` DB rows with it, files already gone by then; acceptable here because purge is explicit and rare, unlike the pull path above), then `articleImageDao.purgeDeleted` to drop whatever independent image rows are left (already file-less), then `article_categories` (`uuid NOT IN (SELECT category_id FROM articles)` — a category is only purge-eligible once no article, deleted-but-not-yet-purged included, still references it). The file pass must run first: once `articleDao.purgeDeleted` cascades, the corresponding `article_images` rows vanish without any Kotlin code running, so their `imagePath` would be unrecoverable if not captured beforehand.
+
+**Bug found & fixed (2026-07-25, same session): eager physical JPEG deletion on every soft-delete path.** Before this, `ArticleRepositoryImpl.deleteArticle()`, `SyncRepositoryImpl.upsertImage()` (pull-side remote deletion) and `ImageRecognitionRepositoryImpl.deleteImage()`/`deleteImages()` (single-photo delete from the UI) all called `ImageStorageManager.deleteImage()` immediately at soft-delete time, before the row purge design above even existed. That directly contradicted "no physical deletion until an explicit purge": a photo never yet uploaded to the server (`is_uploaded=false`) that got soft-deleted this way was gone forever with zero recovery path, and even an uploaded one required a redownload for no reason. Fixed by removing all four eager `deleteImage()` calls — the JPEG now only ever gets removed by the purge path above. The one remaining `imageStorageManager.deleteImage()` call outside of purge is in `ImageRecognitionRepositoryImpl.saveArticleImage()`'s failure-cleanup branch (OpenCV feature extraction failed right after writing the file) — legitimate, since no DB row was ever created there, nothing to preserve.
+- Deliberately not covering `locations`/`article_location_thresholds` in the purge use case — no delete flow sets `is_deleted` on them yet (see above), so there is nothing to purge there today; would need its own DAO query if that ever changes.
+- **Server-side purge is manual only, no automation** (explicit product decision, revisit if `quickstore-server` ever needs it): `SyncServerRepository` never physically deletes anything — every incoming `isDeleted` is stored as a permanent flag (`Tables.kt`: every synced table has `is_deleted`, no server code ever issues a `DELETE`). If disk usage on Postgres ever becomes a concern, purge by hand with `psql`, in this order (children before parents — Exposed's `.references()` here has no `ON DELETE CASCADE`, so a bare parent delete would fail on FK):
+  ```sql
+  -- Pick a cutoff old enough that every device/membership of the affected orgs has
+  -- almost certainly synced since the deletion — sync is delta-based (pull "since X"),
+  -- so a device that hasn't synced since before this cutoff will NEVER see the deletion
+  -- and will keep a stale live copy forever once the row is actually gone. There's no
+  -- server-side tracking of "last successful sync per device" today to verify this
+  -- automatically — that's exactly why this stays manual, done rarely, with a generous
+  -- cutoff, not turned into a scheduled job.
+  WITH cutoff AS (SELECT (extract(epoch from now() - interval '1 year') * 1000)::bigint AS ts)
+  DELETE FROM movements WHERE article_id IN (
+    SELECT id FROM articles WHERE is_deleted = true AND updated_at < (SELECT ts FROM cutoff)
+  );
+  DELETE FROM article_images WHERE article_id IN (
+    SELECT id FROM articles WHERE is_deleted = true AND updated_at < (SELECT ts FROM cutoff)
+  ) OR (is_deleted = true AND updated_at < (SELECT ts FROM cutoff));
+  DELETE FROM article_location_thresholds WHERE article_id IN (
+    SELECT id FROM articles WHERE is_deleted = true AND updated_at < (SELECT ts FROM cutoff)
+  );
+  DELETE FROM articles WHERE is_deleted = true AND updated_at < (SELECT ts FROM cutoff);
+  DELETE FROM article_categories WHERE is_deleted = true AND updated_at < (SELECT ts FROM cutoff)
+    AND id NOT IN (SELECT category_id FROM articles);
+  ```
+  If this ever needs to become a scheduled job, it needs a per-device/membership "last synced at" timestamp first (doesn't exist today) so the job can confirm every device is past the cutoff before deleting — otherwise a device offline longer than the retention window silently ends up with permanently orphaned local data (see the same reasoning in `PurgeDeletedDataUseCase` above, mirrored server-side).
 
 ### Photo transfer (`ImageTransferWorker`)
 

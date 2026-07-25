@@ -5,7 +5,6 @@ import kotlinx.coroutines.flow.map
 import net.calvuz.qstore.app.data.local.database.ArticleDao
 import net.calvuz.qstore.app.data.local.database.ArticleImageDao
 import net.calvuz.qstore.app.data.local.database.InventoryDao
-import net.calvuz.qstore.app.data.local.storage.ImageStorageManager
 import net.calvuz.qstore.app.data.mapper.ArticleMapper
 import net.calvuz.qstore.app.domain.model.Article
 import net.calvuz.qstore.app.domain.model.Inventory
@@ -18,7 +17,6 @@ import javax.inject.Inject
 class ArticleRepositoryImpl @Inject constructor(
     private val articleDao: ArticleDao,
     private val articleImageDao: ArticleImageDao,
-    private val imageStorageManager: ImageStorageManager,
     private val inventoryDao: InventoryDao,
     private val articleMapper: ArticleMapper
 ) : ArticleRepository {
@@ -77,10 +75,10 @@ class ArticleRepositoryImpl @Inject constructor(
             // cancellato, l'inventario resta come cache stantia innocua (l'articolo comunque
             // sparisce da ogni lista/ricerca). Il CASCADE del FK di Room su article_images
             // non scatta più (un UPDATE non innesca CASCADE), quindi le immagini vanno
-            // marcate cancellate esplicitamente qui, incluso il file fisico sul device.
-            articleImageDao.getByArticleUuid(uuid).forEach { image ->
-                imageStorageManager.deleteImage(image.imagePath)
-            }
+            // marcate cancellate esplicitamente qui. Il JPEG fisico NON viene toccato: resta
+            // sul device finché non arriva un purge esplicito (PurgeDeletedDataUseCase) —
+            // cancellarlo subito lo perderebbe per sempre se non era ancora stato caricato
+            // sul server, senza nessuna possibilità di restore nel frattempo.
             articleImageDao.markAllDeletedByArticleUuid(uuid, now)
 
             articleDao.markDeleted(uuid, now)

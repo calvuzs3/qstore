@@ -87,7 +87,10 @@ interface ArticleImageDao {
     @Query("UPDATE article_images SET is_uploaded = 1 WHERE uuid = :uuid")
     suspend fun markUploaded(uuid: String)
 
-    /** Soft-delete di una singola immagine — usata da ImageRecognitionRepositoryImpl.deleteImage(). */
+    /**
+     * Soft-delete di una singola immagine — usata sia da ImageRecognitionRepositoryImpl.deleteImage()
+     * sia dal sync per applicare una cancellazione remota (mai un DELETE fisico in pull).
+     */
     @Query("UPDATE article_images SET is_deleted = 1, updated_at = :updatedAt WHERE uuid = :uuid")
     suspend fun markDeleted(uuid: String, updatedAt: Long)
 
@@ -99,4 +102,25 @@ interface ArticleImageDao {
      */
     @Query("UPDATE article_images SET is_deleted = 1, updated_at = :updatedAt WHERE article_uuid = :articleUuid AND is_deleted = 0")
     suspend fun markAllDeletedByArticleUuid(articleUuid: String, updatedAt: Long)
+
+    /**
+     * Righe eleggibili per il purge (is_deleted=1, abbastanza vecchie) — usata da
+     * PurgeDeletedDataUseCase per recuperare gli `imagePath` PRIMA di eliminare le righe:
+     * il JPEG non viene mai toccato al momento del soft-delete (locale o via sync), resta
+     * sul device apposta per non perderlo prima di un eventuale restore. Include sia le
+     * immagini di un articolo che sta per essere purgato (il CASCADE farà sparire la riga
+     * DB senza eseguire codice Kotlin — se non si cancella il file qui, il path va perso per
+     * sempre) sia le cancellazioni indipendenti di una singola foto.
+     */
+    @Query("SELECT * FROM article_images WHERE is_deleted = 1 AND updated_at < :before")
+    suspend fun getPurgeable(before: Long): List<ArticleImageEntity>
+
+    /**
+     * DELETE fisico vero e proprio delle righe — usata solo da PurgeDeletedDataUseCase, dopo
+     * aver già cancellato i JPEG corrispondenti via getPurgeable(). Le immagini di un
+     * articolo già purgato sono già sparite per CASCADE prima ancora di arrivare qui — questa
+     * query si limita a ripulire le righe rimaste (cancellazioni indipendenti).
+     */
+    @Query("DELETE FROM article_images WHERE is_deleted = 1 AND updated_at < :before")
+    suspend fun purgeDeleted(before: Long): Int
 }

@@ -67,4 +67,15 @@ interface ArticleDao {
     @Query("UPDATE articles SET is_deleted = 1, updated_at = :updatedAt WHERE uuid = :uuid")
     suspend fun markDeleted(uuid: String, updatedAt: Long)
 
+    /**
+     * DELETE fisico vero e proprio — usata solo da PurgeDeletedDataUseCase, mai dal sync
+     * (che applica le cancellazioni remote come soft-delete, vedi SyncRepositoryImpl).
+     * Il FK CASCADE su inventory/movements/article_location_thresholds/article_images
+     * ripulisce a cascata lo storico di questo articolo: accettabile qui perché il purge è
+     * un'azione esplicita e rara, a differenza del pull dove sarebbe un effetto collaterale
+     * indesiderato di un semplice giro di sync.
+     */
+    @Query("DELETE FROM articles WHERE is_deleted = 1 AND updated_at < :before")
+    suspend fun purgeDeleted(before: Long): Int
+
 }

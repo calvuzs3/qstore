@@ -60,4 +60,14 @@ interface ArticleCategoryDao {
     /** Soft-delete: usata da ArticleCategoryRepositoryImpl.delete() al posto di un DELETE fisico. */
     @Query("UPDATE article_categories SET is_deleted = 1, updated_at = :updatedAt WHERE uuid = :uuid")
     suspend fun markDeleted(uuid: String, updatedAt: Long)
+
+    /**
+     * DELETE fisico vero e proprio — usata solo da PurgeDeletedDataUseCase, mai dal sync.
+     * `uuid NOT IN (SELECT category_id FROM articles)`: non basta is_deleted sull'articolo,
+     * finché la riga esiste (anche solo come tombstone non ancora purgato) il FK la referenzia
+     * ancora, e categoryId non è nullable — un articolo non ancora purgato blocca comunque
+     * la cancellazione fisica della sua categoria.
+     */
+    @Query("DELETE FROM article_categories WHERE is_deleted = 1 AND updated_at < :before AND uuid NOT IN (SELECT category_id FROM articles)")
+    suspend fun purgeDeleted(before: Long): Int
 }

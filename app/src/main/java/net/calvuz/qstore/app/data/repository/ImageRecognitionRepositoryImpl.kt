@@ -102,14 +102,11 @@ class ImageRecognitionRepositoryImpl @Inject constructor(
         return try {
             val image = articleImageDao.getByUuid(imageUuid)
             if (image != null) {
-                // Elimina subito il file fisico (nessuna ragione di tenerlo su questo
-                // device per una foto cancellata) — la riga DB resta come tombstone
-                // (soft-delete) finché non viene propagata al server al prossimo push.
-                imageStorageManager.deleteImage(image.imagePath)
-                    .getOrElse {
-                        // Log warning ma continua comunque
-                    }
-
+                // Soft-delete: la riga DB resta come tombstone finché non viene propagata al
+                // server al prossimo push. Il JPEG fisico NON viene toccato qui — resta sul
+                // device finché non arriva un purge esplicito (PurgeDeletedDataUseCase):
+                // cancellarlo subito lo perderebbe per sempre se non era ancora stato caricato
+                // sul server, senza nessuna possibilità di restore nel frattempo.
                 articleImageDao.markDeleted(imageUuid, System.currentTimeMillis())
                 Result.success(Unit)
             } else {
@@ -122,16 +119,10 @@ class ImageRecognitionRepositoryImpl @Inject constructor(
 
     override suspend fun deleteImages(articleUuid: String): Result<Int> {
         return try {
-            // Recupera tutte le immagini
-            val images = articleImageDao.getByArticleUuid(articleUuid)
-
-            // Elimina tutti i file
-            images.forEach { image ->
-                imageStorageManager.deleteImage(image.imagePath)
-            }
-
             // Soft-delete in DB, non più un DELETE fisico — propaga la cancellazione al
-            // server al prossimo push.
+            // server al prossimo push. I JPEG fisici NON vengono toccati qui, stessa ragione
+            // di deleteImage() sopra: restano fino a un purge esplicito.
+            val images = articleImageDao.getByArticleUuid(articleUuid)
             articleImageDao.markAllDeletedByArticleUuid(articleUuid, System.currentTimeMillis())
 
             Result.success(images.size)

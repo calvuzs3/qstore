@@ -158,7 +158,7 @@ fun ArticleDetailScreen(
             onDismissRequest = viewModel::onDeleteDismiss,
             title = { Text("Elimina Articolo") },
             text = {
-                Text("Sei sicuro di voler eliminare questo articolo? Verranno eliminati anche tutti i movimenti associati.")
+                Text("Sei sicuro di voler eliminare questo articolo?")
             },
             confirmButton = {
                 TextButton(

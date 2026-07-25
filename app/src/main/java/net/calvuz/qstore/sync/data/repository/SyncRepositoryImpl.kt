@@ -34,6 +34,7 @@ import net.calvuz.qstore.shared.dto.LocationDto
 import net.calvuz.qstore.shared.dto.MovementDto
 import net.calvuz.qstore.shared.dto.SyncPullResponse
 import net.calvuz.qstore.shared.dto.SyncPushRequest
+import net.calvuz.qstore.sync.domain.model.PurgeSummary
 import net.calvuz.qstore.sync.domain.model.SyncException
 import net.calvuz.qstore.sync.domain.model.SyncSummary
 import net.calvuz.qstore.sync.domain.repository.SyncRepository
@@ -54,9 +55,17 @@ private val log = Timber.tag("Sync")
  * locale diventa un soft-delete (vedi i rispettivi repository), viene raccolta dalla stessa
  * query getUpdatedSince già usata per gli update normali (una cancellazione è concettualmente
  * solo un altro update) e propagata al server qui. Una cancellazione remota (isDeleted=true
- * in arrivo) viene invece applicata come DELETE fisico locale — nessun bisogno di tenere un
- * tombstone locale per qualcosa che il server ci ha già confermato cancellato. `movements`
- * resta escluso deliberatamente: è un log append-only, non ha senso "cancellarlo" così.
+ * in arrivo) viene applicata anche localmente come soft-delete, MAI come DELETE fisico:
+ * `articles` ha FK CASCADE da `inventory`/`movements`/`article_location_thresholds`/
+ * `article_images`, quindi un DELETE fisico in pull si porterebbe via a cascata proprio lo
+ * storico che il soft-delete locale (vedi ArticleRepositoryImpl.deleteArticle) preserva
+ * deliberatamente — bug reale osservato: bastava che l'articolo appena cancellato tornasse
+ * indietro nella pull dello stesso giro di sync perché i suoi movimenti sparissero anche sul
+ * device che li aveva creati. La cancellazione fisica vera e propria è ora solo compito di
+ * PurgeDeletedDataUseCase, esplicito e a richiesta dell'utente (vedi quella classe). `movements`
+ * resta escluso deliberatamente dal flag isDeleted: è un log append-only, non ha senso
+ * "cancellarlo" così — la sua unica via di cancellazione è il CASCADE quando l'articolo viene
+ * infine purgato per davvero.
  *
  * Limiti noti di questa prima versione (nessun WebSocket/WorkManager ancora):
  * - No WebSocket client, no periodic background sync — solo push/pull manuale.
@@ -133,6 +142,53 @@ class SyncRepositoryImpl @Inject constructor(
             )
         } catch (e: Exception) {
             log.e(e, "syncNow failed")
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * DELETE fisico vero e proprio dei tombstone (is_deleted=1) più vecchi della retention
+     * richiesta — l'unico punto di tutto il sync path dove una riga sparisce davvero dal
+     * device, mai in risposta a un semplice giro di sync (vedi il commento in cima al file).
+     *
+     * Il cutoff effettivo è il minimo tra "ora meno retention" e `sincePush`: non basta che
+     * una cancellazione sia vecchia, deve anche essere già stata comunicata al server,
+     * altrimenti la si perderebbe localmente senza che sia mai stata propagata (un device
+     * che ha soft-eliminato qualcosa e poi non ha più sincronizzato non deve poterla purgare
+     * da solo). Un device senza alcuna sessione/sync attiva ha sincePush=0, quindi il cutoff
+     * resta 0 e la purge non elimina nulla — comportamento corretto, non un bug: i tombstone
+     * restano invisibili in ogni lista/ricerca comunque, l'unico costo è spazio su disco.
+     *
+     * Ordine: articles prima di categories, perché il CASCADE su un articolo purgato porta
+     * via anche eventuali categorie che restavano referenziate solo da lui, rendendole a loro
+     * volta eleggibili nello stesso giro.
+     */
+    override suspend fun purgeDeletedData(retentionMillis: Long): Result<PurgeSummary> {
+        return try {
+            val sincePush = syncLocalStore.getSincePush()
+            val cutoff = minOf(System.currentTimeMillis() - retentionMillis, sincePush)
+            log.i("purgeDeletedData: retentionMillis=$retentionMillis sincePush=$sincePush cutoff=$cutoff")
+
+            // I JPEG vanno cancellati ORA, prima delle righe: nessun soft-delete (locale o
+            // via sync) tocca mai il file fisico, resta sul device apposta per non perderlo
+            // prima di un eventuale restore. Se aspettassimo il DELETE di articleDao qui
+            // sotto, il CASCADE farebbe sparire la riga article_images senza eseguire codice
+            // Kotlin — il path andrebbe perso per sempre senza che il file venga mai rimosso.
+            val purgeableImages = articleImageDao.getPurgeable(cutoff)
+            purgeableImages.forEach { image -> imageStorageManager.deleteImage(image.imagePath) }
+
+            val articlesPurged = articleDao.purgeDeleted(cutoff)
+            // Ripulisce solo le righe rimaste (cancellazioni indipendenti da un articolo
+            // ancora vivo): quelle del CASCADE sopra sono già sparite, il loro file è già
+            // stato cancellato nel loop precedente.
+            articleImageDao.purgeDeleted(cutoff)
+            val categoriesPurged = articleCategoryDao.purgeDeleted(cutoff)
+
+            val summary = PurgeSummary(articlesPurged, purgeableImages.size, categoriesPurged)
+            log.i("purgeDeletedData done: $summary")
+            Result.success(summary)
+        } catch (e: Exception) {
+            log.e(e, "purgeDeletedData failed")
             Result.failure(e)
         }
     }
@@ -229,8 +285,8 @@ class SyncRepositoryImpl @Inject constructor(
     private suspend fun upsertCategory(dto: ArticleCategoryDto) {
         val existing = articleCategoryDao.getByUuid(dto.id)
         if (dto.isDeleted) {
-            existing?.let { articleCategoryDao.delete(it) }
-            log.d("category ${dto.id} deleted (remoto)")
+            existing?.let { articleCategoryDao.markDeleted(dto.id, dto.updatedAt) }
+            log.d("category ${dto.id} soft-deleted (remoto)")
             return
         }
         if (existing != null && dto.updatedAt <= existing.updatedAt) {
@@ -248,8 +304,8 @@ class SyncRepositoryImpl @Inject constructor(
     private suspend fun upsertLocation(dto: LocationDto) {
         val existing = locationDao.getByUuid(dto.id)
         if (dto.isDeleted) {
-            existing?.let { locationDao.delete(it) }
-            log.d("location ${dto.id} deleted (remoto)")
+            existing?.let { locationDao.markDeleted(dto.id, dto.updatedAt) }
+            log.d("location ${dto.id} soft-deleted (remoto)")
             return
         }
         if (existing != null && dto.updatedAt <= existing.updatedAt) {
@@ -267,8 +323,8 @@ class SyncRepositoryImpl @Inject constructor(
     private suspend fun upsertArticle(dto: ArticleDto) {
         val existing = articleDao.getByUuid(dto.id)
         if (dto.isDeleted) {
-            existing?.let { articleDao.delete(it) }
-            log.d("article ${dto.id} deleted (remoto)")
+            existing?.let { articleDao.markDeleted(dto.id, dto.updatedAt) }
+            log.d("article ${dto.id} soft-deleted (remoto)")
             return
         }
         if (existing != null && dto.updatedAt <= existing.updatedAt) {
@@ -288,8 +344,8 @@ class SyncRepositoryImpl @Inject constructor(
     private suspend fun upsertThreshold(dto: ArticleLocationThresholdDto) {
         val existing = articleLocationThresholdDao.getByUuid(dto.id)
         if (dto.isDeleted) {
-            existing?.let { articleLocationThresholdDao.delete(it) }
-            log.d("threshold ${dto.id} deleted (remoto)")
+            existing?.let { articleLocationThresholdDao.markDeleted(dto.id, dto.updatedAt) }
+            log.d("threshold ${dto.id} soft-deleted (remoto)")
             return
         }
         if (existing != null && dto.updatedAt <= existing.updatedAt) {
@@ -332,11 +388,11 @@ class SyncRepositoryImpl @Inject constructor(
     private suspend fun upsertImage(dto: ArticleImageDto) {
         val existing = articleImageDao.getByUuid(dto.id)
         if (dto.isDeleted) {
-            if (existing != null) {
-                imageStorageManager.deleteImage(existing.imagePath)
-                articleImageDao.delete(existing)
-            }
-            log.d("image ${dto.id} deleted (remoto)")
+            // JPEG NON toccato qui: resta sul device finché non arriva un purge esplicito
+            // (PurgeDeletedDataUseCase) — stessa ragione della cancellazione locale, vedi
+            // ArticleRepositoryImpl.deleteArticle.
+            existing?.let { articleImageDao.markDeleted(dto.id, dto.updatedAt) }
+            log.d("image ${dto.id} soft-deleted (remoto)")
             return
         }
         if (existing != null && dto.updatedAt <= existing.updatedAt) {

@@ -1,5 +1,6 @@
 package net.calvuz.qstore.sync.domain.repository
 
+import net.calvuz.qstore.sync.domain.model.PurgeSummary
 import net.calvuz.qstore.sync.domain.model.SyncSummary
 
 /**
@@ -9,4 +10,11 @@ import net.calvuz.qstore.sync.domain.model.SyncSummary
  */
 interface SyncRepository {
     suspend fun syncNow(): Result<SyncSummary>
+
+    /**
+     * Elimina fisicamente e per sempre articoli/immagini/categorie soft-eliminati da almeno
+     * [retentionMillis]. Vedi PurgeDeletedDataUseCase per il vincolo di sicurezza sul cursore
+     * di push (non purga mai una cancellazione non ancora propagata al server).
+     */
+    suspend fun purgeDeletedData(retentionMillis: Long): Result<PurgeSummary>
 }

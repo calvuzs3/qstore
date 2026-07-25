@@ -31,4 +31,8 @@ interface ArticleLocationThresholdDao {
     /** Righe modificate dopo il cursore di sync — usata per costruire il payload di push. */
     @Query("SELECT * FROM article_location_thresholds WHERE updated_at > :since")
     suspend fun getUpdatedSince(since: Long): List<ArticleLocationThresholdEntity>
+
+    /** Soft-delete — usata dal sync per applicare una cancellazione remota (mai un DELETE fisico). */
+    @Query("UPDATE article_location_thresholds SET is_deleted = 1, updated_at = :updatedAt WHERE uuid = :uuid")
+    suspend fun markDeleted(uuid: String, updatedAt: Long)
 }

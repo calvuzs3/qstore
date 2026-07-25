@@ -17,6 +17,7 @@ import net.calvuz.qstore.auth.domain.usecase.ObserveSessionUseCase
 import net.calvuz.qstore.auth.domain.usecase.SelectOrganizationUseCase
 import net.calvuz.qstore.app.domain.usecase.movement.ReconcileInventoryMovementsUseCase
 import net.calvuz.qstore.sync.domain.usecase.ObserveAllowMeteredNetworkUseCase
+import net.calvuz.qstore.sync.domain.usecase.PurgeDeletedDataUseCase
 import net.calvuz.qstore.sync.domain.usecase.SetAllowMeteredNetworkUseCase
 import net.calvuz.qstore.sync.domain.usecase.SyncNowUseCase
 import javax.inject.Inject
@@ -50,7 +51,9 @@ sealed class LoginUiState {
         val justLoggedIn: Boolean = false,
         val allowMeteredNetwork: Boolean = false,
         val isReconciling: Boolean = false,
-        val reconcileMessage: String? = null
+        val reconcileMessage: String? = null,
+        val isPurging: Boolean = false,
+        val purgeMessage: String? = null
     ) : LoginUiState()
 }
 
@@ -60,6 +63,7 @@ class LoginViewModel @Inject constructor(
     private val selectOrganizationUseCase: SelectOrganizationUseCase,
     private val logoutUseCase: LogoutUseCase,
     private val syncNowUseCase: SyncNowUseCase,
+    private val purgeDeletedDataUseCase: PurgeDeletedDataUseCase,
     private val reconcileInventoryMovementsUseCase: ReconcileInventoryMovementsUseCase,
     private val observeAllowMeteredNetworkUseCase: ObserveAllowMeteredNetworkUseCase,
     private val setAllowMeteredNetworkUseCase: SetAllowMeteredNetworkUseCase,
@@ -175,6 +179,36 @@ class LoginViewModel @Inject constructor(
                 .onFailure { throwable ->
                     val current = _uiState.value as? LoginUiState.AlreadyLoggedIn ?: return@onFailure
                     _uiState.value = current.copy(isSyncing = false, syncMessage = throwable.message ?: "Errore di sincronizzazione")
+                }
+        }
+    }
+
+    /**
+     * Pulizia esplicita e a richiesta: elimina per sempre articoli/foto/categorie già
+     * soft-eliminati da tempo e già sincronizzati (vedi PurgeDeletedDataUseCase). Va sempre
+     * confermata da un dialog lato UI prima di essere chiamata — è irreversibile.
+     */
+    fun purgeDeletedData() {
+        val state = _uiState.value as? LoginUiState.AlreadyLoggedIn ?: return
+        _uiState.value = state.copy(isPurging = true, purgeMessage = null)
+
+        viewModelScope.launch {
+            purgeDeletedDataUseCase()
+                .onSuccess { summary ->
+                    val current = _uiState.value as? LoginUiState.AlreadyLoggedIn ?: return@onSuccess
+                    _uiState.value = current.copy(
+                        isPurging = false,
+                        purgeMessage = if (summary.total > 0) {
+                            "Eliminati definitivamente: ${summary.articlesPurged} articoli, " +
+                                "${summary.imagesPurged} foto, ${summary.categoriesPurged} categorie"
+                        } else {
+                            "Nessun dato cancellato abbastanza vecchio da rimuovere"
+                        }
+                    )
+                }
+                .onFailure { throwable ->
+                    val current = _uiState.value as? LoginUiState.AlreadyLoggedIn ?: return@onFailure
+                    _uiState.value = current.copy(isPurging = false, purgeMessage = throwable.message ?: "Errore durante la pulizia")
                 }
         }
     }
