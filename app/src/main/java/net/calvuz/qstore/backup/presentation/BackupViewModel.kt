@@ -49,23 +49,21 @@ class BackupViewModel @Inject constructor(
     fun createBackup(options: BackupOptions = BackupOptions()) {
         viewModelScope.launch {
             _uiState.update { it.copy(isCreatingBackup = true, progress = null, error = null) }
-            
+
             try {
+                // Un'unica esecuzione: il risultato finale arriva sull'ultima emissione del
+                // flow (BackupProgress.result), non serve più richiamare createBackupUseCase.sync()
+                // — prima lo faceva, eseguendo l'intero backup due volte ad ogni tap (bug reale,
+                // confermato su device: due ZIP quasi identici a pochi secondi di distanza).
+                var successResult: BackupResult.Success? = null
                 createBackupUseCase(options).collect { progress ->
                     _uiState.update { it.copy(progress = progress) }
+                    (progress.result as? BackupResult.Success)?.let { successResult = it }
                 }
-                
-                // Backup completato con successo
-                val result = createBackupUseCase.sync(options)
-                when (result) {
-                    is BackupResult.Success -> {
-                        _events.emit(BackupEvent.BackupCreated(result.file, result.sizeBytes))
-                        loadAvailableBackups()
-                    }
-                    is BackupResult.Error -> {
-                        _uiState.update { it.copy(error = result.error.message) }
-                        _events.emit(BackupEvent.Error(result.error.message ?: "Errore sconosciuto"))
-                    }
+
+                successResult?.let { result ->
+                    _events.emit(BackupEvent.BackupCreated(result.file, result.sizeBytes))
+                    loadAvailableBackups()
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }

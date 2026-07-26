@@ -54,18 +54,17 @@ class BackupRepositoryImpl @Inject constructor(
     
     override fun createBackup(options: BackupOptions): Flow<BackupProgress> = flow {
         emit(BackupProgress("Inizializzazione...", 0.0f))
-        
-        try {
-            val result = createBackupInternal(options) { phase, progress ->
-                emit(BackupProgress(phase, progress))
-            }
-            
-            when (result) {
-                is BackupResult.Success -> emit(BackupProgress("Backup completato!", 1.0f))
-                is BackupResult.Error -> throw result.error
-            }
-        } catch (e: Exception) {
-            throw e
+
+        val result = createBackupInternal(options) { phase, progress ->
+            emit(BackupProgress(phase, progress))
+        }
+
+        when (result) {
+            // Il risultato viaggia sull'ultima emissione invece di essere scartato: il
+            // chiamante (BackupViewModel) non deve più rieseguire l'intero backup con
+            // createBackupSync() solo per ottenerlo — vedi il commento su BackupProgress.result.
+            is BackupResult.Success -> emit(BackupProgress("Backup completato!", 1.0f, result = result))
+            is BackupResult.Error -> throw result.error
         }
     }.flowOn(Dispatchers.IO)
     
@@ -81,11 +80,14 @@ class BackupRepositoryImpl @Inject constructor(
     ): BackupResult {
         try {
             progressCallback("Esportazione categorie...", 0.05f)
-            
+
             // 1. Carica tutti i dati dal database
             val categories = articleCategoryDao.getAll().map { serializer.mapCategory(it) }
+            progressCallback("Esportazione ubicazioni...", 0.10f)
+
+            val locations = locationDao.getAll().map { serializer.mapLocation(it) }
             progressCallback("Esportazione articoli...", 0.15f)
-            
+
             val articles = articleDao.getAll().map { serializer.mapArticle(it) }
             progressCallback("Esportazione inventario...", 0.25f)
             
@@ -121,6 +123,7 @@ class BackupRepositoryImpl @Inject constructor(
             
             // 4. Serializza tutto in JSON
             val categoriesJson = serializer.serializeCategories(categories)
+            val locationsJson = serializer.serializeLocations(locations)
             val articlesJson = serializer.serializeArticles(articles)
             val inventoryJson = serializer.serializeInventory(inventory)
             val movementsJson = serializer.serializeMovements(movements)
@@ -137,6 +140,7 @@ class BackupRepositoryImpl @Inject constructor(
             // 5. Calcola i checksum
             val checksums = BackupChecksums(
                 categories = serializer.calculateChecksum(categoriesJson),
+                locations = serializer.calculateChecksum(locationsJson),
                 articles = serializer.calculateChecksum(articlesJson),
                 inventory = serializer.calculateChecksum(inventoryJson),
                 movements = serializer.calculateChecksum(movementsJson),
@@ -155,6 +159,7 @@ class BackupRepositoryImpl @Inject constructor(
                 deviceInfo = "${Build.MANUFACTURER} ${Build.MODEL}",
                 counts = BackupCounts(
                     categories = categories.size,
+                    locations = locations.size,
                     articles = articles.size,
                     inventory = inventory.size,
                     movements = movements.size,
@@ -172,6 +177,7 @@ class BackupRepositoryImpl @Inject constructor(
             // 7. Crea il content provider per lo ZIP
             val contentProvider = object : BackupContentProvider {
                 override fun getCategoriesJson() = categoriesJson
+                override fun getLocationsJson() = locationsJson
                 override fun getArticlesJson() = articlesJson
                 override fun getInventoryJson() = inventoryJson
                 override fun getMovementsJson() = movementsJson
@@ -326,6 +332,7 @@ class BackupRepositoryImpl @Inject constructor(
         // 7. Deserializza tutti i dati
         progressCallback("Deserializzazione dati...", 0.30f)
         val categories = serializer.deserializeCategories(zipContent.categoriesJson)
+        val locations = serializer.deserializeLocations(zipContent.locationsJson)
         val articles = serializer.deserializeArticles(zipContent.articlesJson)
         val inventory = serializer.deserializeInventory(zipContent.inventoryJson)
         val movements = serializer.deserializeMovements(zipContent.movementsJson)
@@ -339,8 +346,6 @@ class BackupRepositoryImpl @Inject constructor(
             progressCallback("Pulizia immagini...", 0.40f)
             clearAllImages()
 
-            val defaultLocationUuid = java.util.UUID.randomUUID().toString()
-
             // 9-10. Svuota e ripopola il database in un'unica transazione (room-ktx
             // withTransaction, supporta le suspend fun dei DAO): se un insert fallisce a
             // metà — es. un backup corrotto con un riferimento a categoria inesistente —
@@ -350,20 +355,30 @@ class BackupRepositoryImpl @Inject constructor(
             database.withTransaction {
                 clearAllTables()
 
-                // clearAllTables() svuota anche `locations` — il formato di backup non porta
-                // ancora le ubicazioni (TODO in BackupSerializer), quindi va ricreata subito
-                // l'ubicazione di default, altrimenti inventario/movimenti non hanno dove
-                // essere assegnati.
-                val now = System.currentTimeMillis()
-                locationDao.insert(
-                    LocationEntity(
-                        uuid = defaultLocationUuid,
-                        name = "Magazzino principale",
-                        notes = "",
-                        createdAt = now,
-                        updatedAt = now
+                // Formato nuovo (locations non vuoto): ripristina le ubicazioni reali,
+                // preservando i loro UUID — inventario e movimenti portano già il riferimento
+                // corretto, nessun fallback necessario.
+                // Formato vecchio (locations vuoto, backup pre-redesign multi-magazzino):
+                // clearAllTables() ha appena svuotato anche `locations`, quindi va ricreata
+                // un'unica ubicazione di fallback, altrimenti inventario/movimenti non hanno
+                // dove essere assegnati — stesso comportamento del restore prima di questa modifica.
+                val fallbackLocationUuid = if (locations.isNotEmpty()) {
+                    locations.forEach { location -> locationDao.insert(serializer.mapToLocation(location)) }
+                    "" // mai usato: ogni riga del formato nuovo porta già il proprio location_uuid
+                } else {
+                    val fallbackUuid = java.util.UUID.randomUUID().toString()
+                    val now = System.currentTimeMillis()
+                    locationDao.insert(
+                        LocationEntity(
+                            uuid = fallbackUuid,
+                            name = "Magazzino principale",
+                            notes = "",
+                            createdAt = now,
+                            updatedAt = now
+                        )
                     )
-                )
+                    fallbackUuid
+                }
 
                 // 10. Inserisci i nuovi dati (in ordine FK)
                 progressCallback("Ripristino categorie...", 0.50f)
@@ -378,7 +393,7 @@ class BackupRepositoryImpl @Inject constructor(
 
                 progressCallback("Ripristino inventario...", 0.60f)
                 inventory.forEach { inv ->
-                    inventoryDao.insert(serializer.mapToInventory(inv, defaultLocationUuid))
+                    inventoryDao.insert(serializer.mapToInventory(inv, fallbackLocationUuid))
                 }
 
                 progressCallback("Ripristino immagini articoli...", 0.65f)
@@ -389,7 +404,7 @@ class BackupRepositoryImpl @Inject constructor(
 
                 progressCallback("Ripristino movimenti...", 0.70f)
                 movements.forEach { movement ->
-                    movementDao.insert(serializer.mapToMovement(movement, defaultLocationUuid))
+                    movementDao.insert(serializer.mapToMovement(movement, fallbackLocationUuid))
                 }
             }
 
@@ -536,6 +551,11 @@ class BackupRepositoryImpl @Inject constructor(
     private fun verifyChecksums(content: BackupZipContent, expected: BackupChecksums): ValidationError? {
         if (!serializer.verifyChecksum(content.categoriesJson, expected.categories)) {
             return ValidationError.ChecksumMismatch("categories")
+        }
+        // Checksum vuoto = metadata.json di un backup pre-redesign multi-magazzino, che non
+        // aveva alcun checksum per le ubicazioni — non è un mismatch, va solo saltato.
+        if (expected.locations.isNotEmpty() && !serializer.verifyChecksum(content.locationsJson, expected.locations)) {
+            return ValidationError.ChecksumMismatch("locations")
         }
         if (!serializer.verifyChecksum(content.articlesJson, expected.articles)) {
             return ValidationError.ChecksumMismatch("articles")

@@ -43,6 +43,19 @@ data class ArticleBackup(
 )
 
 // ============================================
+// LOCATION
+// ============================================
+
+@Serializable
+data class LocationBackup(
+    val uuid: String,
+    val name: String,
+    val notes: String,
+    val createdAt: Long,
+    val updatedAt: Long
+)
+
+// ============================================
 // INVENTORY
 // ============================================
 
@@ -50,7 +63,11 @@ data class ArticleBackup(
 data class InventoryBackup(
     val articleUuid: String,
     val currentQuantity: Double,
-    val lastMovementAt: Long
+    val lastMovementAt: Long,
+    // Default vuoto: retrocompatibilità con backup creati prima del redesign multi-magazzino,
+    // che non portavano alcuna ubicazione — il restore la interpreta come "sconosciuta" e usa
+    // un'unica ubicazione di fallback, esattamente come faceva prima di questa modifica.
+    val locationUuid: String = ""
 )
 
 // ============================================
@@ -64,7 +81,12 @@ data class MovementBackup(
     val type: String, // Serializzato come stringa per compatibilità
     val quantity: Double,
     val notes: String,
-    val createdAt: Long
+    val createdAt: Long,
+    // Default null: retrocompatibilità con backup pre-redesign — nessuno dei due presente
+    // significa "formato vecchio", il restore ricade sull'euristica IN/OUT su un'unica
+    // ubicazione di fallback (vedi BackupSerializer.mapToMovement).
+    val fromLocationUuid: String? = null,
+    val toLocationUuid: String? = null
 )
 
 // ============================================
@@ -124,6 +146,7 @@ data class RecognitionSettingsBackup(
  */
 data class BackupData(
     val categories: List<CategoryBackup>,
+    val locations: List<LocationBackup>,
     val articles: List<ArticleBackup>,
     val inventory: List<InventoryBackup>,
     val movements: List<MovementBackup>,

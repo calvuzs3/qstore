@@ -42,7 +42,9 @@ data class BackupCounts(
     val inventory: Int,
     val movements: Int,
     val articleImages: Int,
-    val imageFiles: Int
+    val imageFiles: Int,
+    // Default 0: retrocompatibilità con metadata.json di backup pre-redesign multi-magazzino.
+    val locations: Int = 0
 )
 
 /**
@@ -57,5 +59,9 @@ data class BackupChecksums(
     val articleImages: String,
     val displaySettings: String,
     val recognitionSettings: String,
-    val imagesManifest: String
+    val imagesManifest: String,
+    // Default vuoto: retrocompatibilità con metadata.json di backup pre-redesign — un checksum
+    // vuoto segnala "non presente in questo backup", verifyChecksums() lo salta invece di
+    // trattarlo come un mismatch.
+    val locations: String = ""
 )

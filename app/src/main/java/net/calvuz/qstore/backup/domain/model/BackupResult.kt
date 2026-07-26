@@ -114,14 +114,23 @@ sealed class ValidationError {
 }
 
 /**
- * Stato di avanzamento del backup/restore
+ * Stato di avanzamento del backup/restore.
+ *
+ * [result] è valorizzato solo sull'ultima emissione di [BackupRepository.createBackup] (mai
+ * durante il restore, che non ne ha bisogno) — permette al chiamante di ottenere l'esito senza
+ * dover rieseguire da capo l'intero backup con `createBackupSync()` solo per avere il
+ * `BackupResult`. Bug reale corretto il 2026-07-26: `BackupViewModel.createBackup()` faceva
+ * esattamente questo, eseguendo l'intero backup due volte ad ogni tap (confermato su device:
+ * due file ZIP quasi identici, o uno che sovrascriveva l'altro se capitavano nello stesso
+ * secondo del nome file basato su timestamp).
  */
 data class BackupProgress(
     val phase: String,
     val progress: Float, // 0.0 - 1.0
     val currentItem: String? = null,
     val totalItems: Int? = null,
-    val processedItems: Int? = null
+    val processedItems: Int? = null,
+    val result: BackupResult? = null
 )
 
 /**

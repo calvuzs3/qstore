@@ -130,9 +130,10 @@ Analisi già fatta in questa sessione, utile per ripartire:
 6. Il caso più raro in cui l'orologio di un singolo device va indietro su se stesso
    (residuo del fix clock-skew sopra) — richiederebbe un flag dirty locale + un contatore
    monotono lato server, quindi anche una migrazione di `quickstore-server`.
-7. Redesign del formato di backup per il multi-magazzino (rinviato quando abbiamo fatto la
-   migrazione v3→v4 — vedi sezione "Backup Format" più sotto): il backup/restore ZIP
-   ignora ancora `locations`.
+7. ~~Redesign del formato di backup per il multi-magazzino~~ — **chiuso il 2026-07-26**,
+   vedi sezione "Backup Format" più sotto. Nella stessa sessione di review sono emersi altri
+   due difetti del modulo backup non ancora sistemati (doppia esecuzione di "Crea backup",
+   foto soft-eliminate incluse nel backup) — dettagli nella stessa sezione.
 
 Dettagli architetturali del server (schema, sicurezza multi-tenant, endpoint) sono in
 `../quickstore-server/CLAUDE.md` — quello resta la fonte autoritativa lato server, questo
@@ -235,13 +236,21 @@ Tables: `articles`, `article_categories`, `inventory`, `movements`, `article_ima
 
 Backups are ZIP archives containing:
 - `metadata.json` — version info + SHA-256 checksums per component
-- `data/{categories,articles,inventory,movements,article_images}.json` — serialized with `kotlinx.serialization`
+- `data/{categories,locations,articles,inventory,movements,article_images}.json` — serialized with `kotlinx.serialization`
 - `images/{articleUuid}/*.jpg` — raw image files
-
-**Known limitation (as of v4/multi-location):** the backup format does not yet carry `locations` or the `from_location_uuid`/`to_location_uuid` on movements — `BackupSerializer`/`BackupRepositoryImpl` reassign everything to a freshly recreated "Magazzino principale" default location on restore, and any additional locations created before the backup are silently lost. Redesigning the backup format for multi-location was explicitly deferred to a dedicated future change (see comments in `BackupSerializer.kt`).
 - `settings/{display_settings,recognition_settings}.json`
 
 Before any restore, a safety backup is created automatically.
+
+**Multi-location support (fixed 2026-07-26).** The backup format now carries `locations` (`LocationBackup`, preserving UUIDs) plus a real `locationUuid` on `InventoryBackup` and real `fromLocationUuid`/`toLocationUuid` on `MovementBackup`, instead of collapsing everything to a single synthetic "Magazzino principale" on restore. This closes a real, confirmed-on-device crash: any article with non-zero inventory in more than one location produced two `InventoryBackup` rows with the same `articleUuid`, both remapped to the *same* default location on restore — a genuine `PRIMARY KEY (article_uuid, location_uuid)` collision (`InventoryDao.insert` is `OnConflictStrategy.ABORT`), verified directly with `sqlite3` against a real backup extracted from the emulator before fixing it, then verified fixed by an actual on-device create-backup → restore round-trip (`adb`+`uiautomator`, no manual taps) that came back with the same 3 locations and article counts as before, no crash, no data merged into one location.
+
+Backward compatibility with backups made before this fix: `locations.json` is optional in the zip (`BackupZipManager.validateZipStructure()` does not require it; `readBackupZip()` falls back to `"[]"` if absent), and `InventoryBackup.locationUuid`/`MovementBackup.fromLocationUuid`/`toLocationUuid` all default to blank/null on decode. When `locations` comes back empty, `BackupRepositoryImpl.restoreBackupInternal()` falls back to recreating a single "Magazzino principale" exactly as before — old backups restore with the same (limited) behavior they always had, no new failure mode introduced for them. `BackupChecksums.locations`/`BackupCounts.locations` also default (empty string / 0) for the same reason — an old `metadata.json` without them is not treated as a checksum mismatch.
+
+**Double backup execution on every "Crea Backup" tap (fixed 2026-07-26).** `BackupViewModel.createBackup()` used to run the *entire* backup process twice per tap — first via `createBackupUseCase(options).collect { }` (Flow, for progress), then again via `createBackupUseCase.sync(options)` just to get the final `BackupResult`, which the Flow-based path computed internally but never exposed. Confirmed on-device before the fix: two near-identical ZIPs a few seconds apart (or one silently overwritten by the other if both landed in the same second of the timestamp-based filename — same underlying double execution either way, just less visible). Fixed by giving `BackupProgress` an optional `result: BackupResult?` field (null on every emission except the last one of a successful `createBackup()`, always null for restore's progress — it doesn't need this), so `BackupRepositoryImpl.createBackup()` attaches the already-computed result to its final emission instead of discarding it. `BackupViewModel.createBackup()` now just reads `progress.result` from the single `collect {}` instead of calling `.sync()` a second time. `createBackupSync()`/`.sync()` itself is untouched and still legitimately used elsewhere for "just create a backup, no progress needed" call sites (`BackupRepositoryImpl`'s own pre-restore safety backup, `SyncRepositoryImpl.switchOrganization()`'s pre-wipe safety backup) — only the redundant *second* call from `createBackup()` was removed. Verified on-device: single tap now produces exactly one file, confirmed stable over a 12-second watch window (long enough that a second, later-timestamped file would have appeared if the bug were still present).
+
+**Not a bug, by design**: backup export uses `ArticleImageDao.getAll()` (`BackupRepositoryImpl.kt`), which is deliberately unfiltered on `is_deleted` for sync's benefit — a soft-deleted-but-not-yet-purged image (still within its 90-day retention, see "Purge" in the Sync section) gets included in every backup, and since `ArticleImageBackup` has no `isDeleted` field, restoring resurrects it with no trace it was ever deleted. Flagged initially as a bug, but explicit product decision (2026-07-26): consistent with "nothing is truly gone until an explicit purge" — the user is the one who decides when deleted data is really cleaned up, backups/restores are expected to follow that same rule rather than second-guess it. No fix needed.
+
+Initial theory that backup creation would fail outright on API 33+ due to scoped storage (`BackupZipManager.getDefaultBackupDir()` writes a raw `File` into `Environment.getExternalStoragePublicDirectory(DIRECTORY_DOWNLOADS)`) turned out to be **wrong** — verified on a real device, it works. Apps can create their own new files directly in generic public directories like Downloads/Documents without `WRITE_EXTERNAL_STORAGE`; the stricter scoped-storage rules are about accessing other apps' existing files, not creating your own. No actual bug here either.
 
 ## Export
 

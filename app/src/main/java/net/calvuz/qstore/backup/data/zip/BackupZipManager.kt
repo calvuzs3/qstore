@@ -31,6 +31,10 @@ class BackupZipManager @Inject constructor(
         
         // File JSON
         const val CATEGORIES_FILE = "${DATA_DIR}categories.json"
+        // Non nella lista dei file obbligatori di validateZipStructure(): assente nei backup
+        // creati prima del redesign multi-magazzino, va trattato come opzionale per restare
+        // compatibili con quei file (vedi readBackupZip, fallback a lista vuota).
+        const val LOCATIONS_FILE = "${DATA_DIR}locations.json"
         const val ARTICLES_FILE = "${DATA_DIR}articles.json"
         const val INVENTORY_FILE = "${DATA_DIR}inventory.json"
         const val MOVEMENTS_FILE = "${DATA_DIR}movements.json"
@@ -78,6 +82,7 @@ class BackupZipManager @Inject constructor(
                 
                 // Aggiungi i file JSON
                 addJsonEntry(zipOut, CATEGORIES_FILE, contentProvider.getCategoriesJson())
+                addJsonEntry(zipOut, LOCATIONS_FILE, contentProvider.getLocationsJson())
                 addJsonEntry(zipOut, ARTICLES_FILE, contentProvider.getArticlesJson())
                 addJsonEntry(zipOut, INVENTORY_FILE, contentProvider.getInventoryJson())
                 addJsonEntry(zipOut, MOVEMENTS_FILE, contentProvider.getMovementsJson())
@@ -114,6 +119,10 @@ class BackupZipManager @Inject constructor(
                         ?: return Result.failure(Exception("Missing metadata.json")),
                     categoriesJson = readZipEntry(zipFile, CATEGORIES_FILE)
                         ?: return Result.failure(Exception("Missing categories.json")),
+                    // Opzionale: assente nei backup pre-redesign multi-magazzino, mai un
+                    // fallimento — "[]" fa sì che il restore ricada sul comportamento di
+                    // sempre (un'unica ubicazione di fallback, vedi BackupRepositoryImpl).
+                    locationsJson = readZipEntry(zipFile, LOCATIONS_FILE) ?: "[]",
                     articlesJson = readZipEntry(zipFile, ARTICLES_FILE)
                         ?: return Result.failure(Exception("Missing articles.json")),
                     inventoryJson = readZipEntry(zipFile, INVENTORY_FILE)
@@ -240,6 +249,7 @@ class BackupZipManager @Inject constructor(
  */
 interface BackupContentProvider {
     fun getCategoriesJson(): String
+    fun getLocationsJson(): String
     fun getArticlesJson(): String
     fun getInventoryJson(): String
     fun getMovementsJson(): String
@@ -256,6 +266,7 @@ interface BackupContentProvider {
 data class BackupZipContent(
     val metadataJson: String,
     val categoriesJson: String,
+    val locationsJson: String,
     val articlesJson: String,
     val inventoryJson: String,
     val movementsJson: String,

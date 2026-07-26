@@ -56,18 +56,28 @@ class BackupSerializer @Inject constructor() {
         )
     }
     
+    fun mapLocation(entity: LocationEntity): LocationBackup {
+        return LocationBackup(
+            uuid = entity.uuid,
+            name = entity.name,
+            notes = entity.notes,
+            createdAt = entity.createdAt,
+            updatedAt = entity.updatedAt
+        )
+    }
+
     fun mapInventory(entity: InventoryEntity): InventoryBackup {
         return InventoryBackup(
             articleUuid = entity.articleUuid,
             currentQuantity = entity.currentQuantity,
-            lastMovementAt = entity.lastMovementAt
+            lastMovementAt = entity.lastMovementAt,
+            locationUuid = entity.locationUuid
         )
     }
-    
-    // TODO: formato di backup non ancora aggiornato per il multi-magazzino (deciso di
-    // rinviare a un turno dedicato) — fromLocationUuid/toLocationUuid dell'entity NON
-    // vengono preservati nel backup. id è un placeholder (0L): il formato usava un Long
-    // auto-incrementato, l'entity ora ha un UUID che non è rappresentabile in un Long.
+
+    // id è un placeholder (0L): il formato usava un Long auto-incrementato, l'entity ora ha
+    // un UUID che non è rappresentabile in un Long — il restore ne genera comunque uno nuovo
+    // (mapToMovement), i movimenti non sono mai referenziati da nient'altro.
     fun mapMovement(entity: MovementEntity): MovementBackup {
         return MovementBackup(
             id = 0L,
@@ -75,7 +85,9 @@ class BackupSerializer @Inject constructor() {
             type = entity.type.name,
             quantity = entity.quantity,
             notes = entity.notes,
-            createdAt = entity.createdAt
+            createdAt = entity.createdAt,
+            fromLocationUuid = entity.fromLocationUuid,
+            toLocationUuid = entity.toLocationUuid
         )
     }
     
@@ -150,26 +162,49 @@ class BackupSerializer @Inject constructor() {
         )
     }
     
-    // defaultLocationUuid: il formato di backup non porta ancora l'ubicazione (TODO sopra)
-    // — ogni riga ripristinata viene assegnata a questa ubicazione, risolta dal chiamante
-    // (BackupRepositoryImpl) al momento del restore.
-    fun mapToInventory(backup: InventoryBackup, defaultLocationUuid: String): InventoryEntity {
+    fun mapToLocation(backup: LocationBackup): LocationEntity {
+        return LocationEntity(
+            uuid = backup.uuid,
+            name = backup.name,
+            notes = backup.notes,
+            createdAt = backup.createdAt,
+            updatedAt = backup.updatedAt
+        )
+    }
+
+    // fallbackLocationUuid: usato solo per un backup pre-redesign multi-magazzino, che non
+    // porta alcuna ubicazione propria (backup.locationUuid vuoto) — in quel caso ogni riga
+    // finisce sull'unica ubicazione "Magazzino principale" ricreata da BackupRepositoryImpl,
+    // esattamente come si comportava il restore prima di questa modifica. Un backup nel
+    // formato nuovo porta sempre il proprio locationUuid, il fallback non viene mai usato.
+    fun mapToInventory(backup: InventoryBackup, fallbackLocationUuid: String): InventoryEntity {
         return InventoryEntity(
             articleUuid = backup.articleUuid,
-            locationUuid = defaultLocationUuid,
+            locationUuid = backup.locationUuid.ifBlank { fallbackLocationUuid },
             currentQuantity = backup.currentQuantity,
             lastMovementAt = backup.lastMovementAt
         )
     }
 
-    fun mapToMovement(backup: MovementBackup, defaultLocationUuid: String): MovementEntity {
+    fun mapToMovement(backup: MovementBackup, fallbackLocationUuid: String): MovementEntity {
         val type = net.calvuz.qstore.app.domain.model.enum.MovementType.valueOf(backup.type)
-        // Stessa euristica IN/OUT usata da MIGRATION_3_4. ADJUSTMENT/TRANSFER non potevano
-        // esistere in backup precedenti a questa modifica; se compaiono in un backup più
-        // recente (fatto dopo l'aggiunta di questi tipi ma prima del redesign del formato),
-        // il from/to reale non è comunque preservato — vedi TODO su mapMovement.
-        val fromLocationUuid = if (type == net.calvuz.qstore.app.domain.model.enum.MovementType.OUT) defaultLocationUuid else null
-        val toLocationUuid = if (type == net.calvuz.qstore.app.domain.model.enum.MovementType.IN) defaultLocationUuid else null
+        // Formato nuovo: from/to reali già presenti nel backup, usati così come sono (anche se
+        // uno dei due è null, es. IN/OUT). Formato vecchio (entrambi null — un backup
+        // pre-redesign non li portava affatto): stessa euristica IN/OUT usata da MIGRATION_3_4,
+        // sull'unica ubicazione di fallback. ADJUSTMENT/TRANSFER non potevano esistere in un
+        // backup di quel formato, quindi qui restano senza ubicazione — comportamento
+        // preesistente, non una regressione di questa modifica.
+        val hasRealLocationData = backup.fromLocationUuid != null || backup.toLocationUuid != null
+        val fromLocationUuid = when {
+            hasRealLocationData -> backup.fromLocationUuid
+            type == net.calvuz.qstore.app.domain.model.enum.MovementType.OUT -> fallbackLocationUuid
+            else -> null
+        }
+        val toLocationUuid = when {
+            hasRealLocationData -> backup.toLocationUuid
+            type == net.calvuz.qstore.app.domain.model.enum.MovementType.IN -> fallbackLocationUuid
+            else -> null
+        }
         return MovementEntity(
             id = java.util.UUID.randomUUID().toString(),
             articleUuid = backup.articleUuid,
@@ -232,6 +267,10 @@ class BackupSerializer @Inject constructor() {
         return json.encodeToString(articles)
     }
     
+    fun serializeLocations(locations: List<LocationBackup>): String {
+        return json.encodeToString(locations)
+    }
+
     fun serializeInventory(inventory: List<InventoryBackup>): String {
         return json.encodeToString(inventory)
     }
@@ -268,6 +307,10 @@ class BackupSerializer @Inject constructor() {
         return json.decodeFromString(jsonString)
     }
     
+    fun deserializeLocations(jsonString: String): List<LocationBackup> {
+        return json.decodeFromString(jsonString)
+    }
+
     fun deserializeInventory(jsonString: String): List<InventoryBackup> {
         return json.decodeFromString(jsonString)
     }
