@@ -21,6 +21,9 @@ interface InventoryRepository {
     /** Quantità di un articolo in una specifica ubicazione. 0.0 se non ha mai avuto movimenti lì. */
     suspend fun getQuantityAt(articleUuid: String, locationUuid: String): Double
 
+    /** Come [getQuantityAt], ma reattiva — usata dal dettaglio articolo per il magazzino attivo. */
+    fun observeQuantityAt(articleUuid: String, locationUuid: String): Flow<Double>
+
     /** Tutte le righe di giacenza grezze, una per coppia (articolo, ubicazione) — usata per riconciliazione. */
     suspend fun getAllEntries(): List<InventoryEntry>
 }

@@ -29,6 +29,7 @@ import net.calvuz.qstore.app.domain.model.Article
 import net.calvuz.qstore.categories.domain.model.ArticleCategory
 import net.calvuz.qstore.app.domain.model.ArticleImage
 import net.calvuz.qstore.app.domain.model.Inventory
+import net.calvuz.qstore.app.domain.model.Location
 import net.calvuz.qstore.app.domain.model.Movement
 import net.calvuz.qstore.app.domain.model.enum.MovementType
 import net.calvuz.qstore.app.presentation.ui.theme.accentInk
@@ -121,6 +122,8 @@ fun ArticleDetailScreen(
                     article = state.article!!,
                     category = state.category,
                     inventory = state.inventory,
+                    activeLocation = state.activeLocation,
+                    activeLocationQuantity = state.activeLocationQuantity,
                     movements = state.movements,
                     images = state.images,
                     onDeleteImage = viewModel::onDeleteImage,
@@ -194,6 +197,8 @@ private fun ArticleDetailContent(
     article: Article,
     category: ArticleCategory?,
     inventory: Inventory?,
+    activeLocation: Location?,
+    activeLocationQuantity: Double?,
     movements: List<Movement>,
     images: List<ArticleImage>,
     onDeleteImage: (String) -> Unit,
@@ -234,6 +239,8 @@ private fun ArticleDetailContent(
         item {
             InventoryCard(
                 inventory = inventory,
+                activeLocation = activeLocation,
+                activeLocationQuantity = activeLocationQuantity,
                 unit = article.unitOfMeasure,
                 reorderLevel = article.reorderLevel
             )
@@ -548,9 +555,20 @@ private fun CodeRow(
 @Composable
 private fun InventoryCard(
     inventory: Inventory?,
+    activeLocation: Location?,
+    activeLocationQuantity: Double?,
     unit: String,
     reorderLevel: Double
 ) {
+    // Se è selezionato un magazzino (stesso filtro persistente della lista articoli), il
+    // numero principale è la giacenza SOLO lì, non il totale su tutte le ubicazioni — evita
+    // di mostrare "9" quando l'utente è arrivato qui da un magazzino che ne mostrava "2",
+    // fuorviante soprattutto su schermi piccoli dove il totale non basta a capire cosa c'è
+    // fisicamente in quel preciso magazzino. Il totale resta comunque visibile, solo demoto
+    // a informazione secondaria invece di sparire.
+    val displayedQuantity = activeLocationQuantity ?: inventory?.currentQuantity ?: 0.0
+    val title = if (activeLocation != null) "Giacenza a ${activeLocation.name}" else "Giacenza Attuale"
+
     Card(
         colors = CardDefaults.cardColors(
             containerColor = when {
@@ -573,7 +591,7 @@ private fun InventoryCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Giacenza Attuale",
+                    text = title,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
@@ -588,10 +606,18 @@ private fun InventoryCard(
             }
 
             Text(
-                text = "${inventory?.currentQuantity ?: 0.0} $unit",
+                text = "$displayedQuantity $unit",
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.Bold
             )
+
+            if (activeLocation != null) {
+                Text(
+                    text = "Totale su tutti i magazzini: ${inventory?.currentQuantity ?: 0.0} $unit",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
             if (inventory != null) {
                 Text(

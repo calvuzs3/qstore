@@ -32,6 +32,10 @@ class InventoryRepositoryImpl @Inject constructor(
         return inventoryDao.getQuantity(articleUuid, locationUuid) ?: 0.0
     }
 
+    override fun observeQuantityAt(articleUuid: String, locationUuid: String): Flow<Double> {
+        return inventoryDao.observeByArticleAndLocation(articleUuid, locationUuid).map { it?.currentQuantity ?: 0.0 }
+    }
+
     override suspend fun getAllEntries(): List<InventoryEntry> {
         return inventoryDao.getAll().map {
             InventoryEntry(

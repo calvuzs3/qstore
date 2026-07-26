@@ -4,19 +4,26 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.calvuz.qstore.app.domain.model.Article
 import net.calvuz.qstore.categories.domain.model.ArticleCategory
 import net.calvuz.qstore.app.domain.model.ArticleImage
 import net.calvuz.qstore.app.domain.model.Inventory
+import net.calvuz.qstore.app.domain.model.Location
 import net.calvuz.qstore.app.domain.model.Movement
 import net.calvuz.qstore.categories.domain.repository.ArticleCategoryRepository
 import net.calvuz.qstore.app.domain.usecase.article.DeleteArticleUseCase
 import net.calvuz.qstore.app.domain.usecase.article.GetArticleUseCase
+import net.calvuz.qstore.app.domain.usecase.inventory.ObserveLocationQuantityUseCase
+import net.calvuz.qstore.app.domain.usecase.location.GetActiveLocationUseCase
 import net.calvuz.qstore.app.domain.usecase.movement.GetMovementsByArticleUseCase
 import net.calvuz.qstore.app.domain.usecase.recognition.DeleteArticleImageUseCase
 import net.calvuz.qstore.app.domain.usecase.recognition.GetArticleImagesUseCase
@@ -26,6 +33,13 @@ data class ArticleDetailState(
     val article: Article? = null,
     val category: ArticleCategory? = null,  // Categoria completa per mostrare il nome
     val inventory: Inventory? = null,
+    // Magazzino attivo (stesso filtro persistente della lista articoli, vedi
+    // ActiveLocationRepository) e giacenza SOLO in quel magazzino — null se nessun magazzino
+    // è selezionato ("Tutti i magazzini"). Risolve un difetto reale: il dettaglio mostrava
+    // sempre il totale su tutte le ubicazioni, confondendo l'utente che apriva un articolo
+    // da un magazzino specifico aspettandosi la quantità lì, non la somma.
+    val activeLocation: Location? = null,
+    val activeLocationQuantity: Double? = null,
     val movements: List<Movement> = emptyList(),
     val images: List<ArticleImage> = emptyList(),
     val isLoading: Boolean = true,
@@ -41,6 +55,7 @@ sealed interface ArticleDetailEvent {
     data class ShowError(val message: String) : ArticleDetailEvent
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ArticleDetailViewModel @Inject constructor(
     private val getArticleUseCase: GetArticleUseCase,
@@ -49,6 +64,8 @@ class ArticleDetailViewModel @Inject constructor(
     private val getArticleImagesUseCase: GetArticleImagesUseCase,
     private val deleteArticleImageUseCase: DeleteArticleImageUseCase,
     private val categoryRepository: ArticleCategoryRepository,
+    private val getActiveLocationUseCase: GetActiveLocationUseCase,
+    private val observeLocationQuantityUseCase: ObserveLocationQuantityUseCase,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -65,6 +82,29 @@ class ArticleDetailViewModel @Inject constructor(
         loadMovements()
         loadImages()
         observeArticleChanges()
+        observeActiveLocationStock()
+    }
+
+    /**
+     * Riusa lo stesso magazzino "attivo" persistente della lista articoli (ActiveLocationRepository)
+     * — se l'utente ci ha filtrato per magazzino prima di aprire questo articolo, il dettaglio
+     * mostra la giacenza SOLO lì, non il totale. Nessun parametro di navigazione necessario:
+     * è lo stesso stato globale già usato altrove nell'app.
+     */
+    private fun observeActiveLocationStock() {
+        viewModelScope.launch {
+            getActiveLocationUseCase().flatMapLatest { location ->
+                if (location == null) {
+                    flowOf(null to null)
+                } else {
+                    observeLocationQuantityUseCase(articleId, location.uuid).map { quantity ->
+                        location to quantity
+                    }
+                }
+            }.collect { (location, quantity) ->
+                _state.update { it.copy(activeLocation = location, activeLocationQuantity = quantity) }
+            }
+        }
     }
 
     private fun observeArticleChanges() {
