@@ -132,6 +132,20 @@ fun DisplaySettingsScreen(
                 }
             }
 
+            // === Anteprima ===
+            item {
+                SettingsSection(
+                    title = "Anteprima",
+                    description = "Come apparirà la lista articoli"
+                ) {
+                    ArticleCardPreview(
+                        style = currentSettings.articleCardStyle,
+                        showImage = currentSettings.showArticleImages,
+                        showStockIndicator = currentSettings.showStockIndicators
+                    )
+                }
+            }
+
             // === Opzioni Visualizzazione ===
             item {
                 SettingsSection(
@@ -191,20 +205,6 @@ fun DisplaySettingsScreen(
                         subtitle = "Mostra gli articoli aggiunti più di recente",
                         checked = currentSettings.showRecentArticles,
                         onCheckedChange = viewModel::setShowRecentArticles
-                    )
-                }
-            }
-
-            // === Preview (Futuro) ===
-            item {
-                SettingsSection(
-                    title = "Anteprima",
-                    description = "Come apparirà la lista articoli"
-                ) {
-                    ArticleCardPreview(
-                        style = currentSettings.articleCardStyle,
-                        showImage = currentSettings.showArticleImages,
-                        showStockIndicator = currentSettings.showStockIndicators
                     )
                 }
             }

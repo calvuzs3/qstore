@@ -371,7 +371,7 @@ private fun getAppInfo(context: Context): AppInfo {
         // interroga il proprio pacchetto), tenuto comunque allineato ai valori reali correnti
         // invece che a uno snapshot vecchio.
         AppInfo(
-            packageName = "net.calvuz.quickstore",
+            packageName = "net.calvuz.qstore",
             versionName = "1.5.2",
             versionCode = 5
         )
