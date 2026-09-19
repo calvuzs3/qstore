@@ -26,6 +26,8 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import javax.inject.Inject
 
+private const val THUMBNAIL_WIDTH_PX = 120
+
 class ExportRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val articleRepository: ArticleRepository,
@@ -56,6 +58,7 @@ class ExportRepositoryImpl @Inject constructor(
                 val filePath = when (options.format) {
                     ExportFormat.CSV -> exportToCsv(items, exportDir, baseFileName, options.includePhotos)
                     ExportFormat.EXCEL -> exportToExcel(items, exportDir, baseFileName, options.includePhotos)
+                    ExportFormat.MARKDOWN -> exportToMarkdown(items, exportDir, baseFileName, options.includePhotos)
                 }
 
                 ExportResult.Success(filePath, items.size)
@@ -191,6 +194,69 @@ class ExportRepositoryImpl @Inject constructor(
         } else {
             excelFile.absolutePath
         }
+    }
+
+    private fun exportToMarkdown(
+        items: List<InventoryExportItem>,
+        exportDir: File,
+        baseFileName: String,
+        includePhotos: Boolean
+    ): String {
+        val mdFile = File(exportDir, "$baseFileName.md")
+
+        mdFile.bufferedWriter().use { writer ->
+            writer.write("# Inventario\n\n")
+            writer.write(
+                "Esportato il ${SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()).format(Date())} " +
+                    "— ${items.size} articoli\n\n"
+            )
+
+            val headers = mutableListOf(
+                "Nome", "Descrizione", "Categoria", "Unità",
+                "Quantità", "Livello Riordino",
+                "Codice OEM", "Codice ERP", "Codice BM", "Note"
+            )
+            if (includePhotos) {
+                headers.add("Foto")
+            }
+
+            writer.write("| ${headers.joinToString(" | ")} |\n")
+            writer.write("|${headers.joinToString("|") { "---" }}|\n")
+
+            items.forEach { item ->
+                val cells = mutableListOf(
+                    escapeMarkdown(item.name),
+                    escapeMarkdown(item.description),
+                    escapeMarkdown(item.categoryName),
+                    escapeMarkdown(item.unitOfMeasure),
+                    formatQuantity(item.currentQuantity),
+                    formatQuantity(item.reorderLevel),
+                    escapeMarkdown(item.codeOEM),
+                    escapeMarkdown(item.codeERP),
+                    escapeMarkdown(item.codeBM),
+                    escapeMarkdown(item.notes)
+                )
+                if (includePhotos) {
+                    cells.add(
+                        item.imagePaths.joinToString(" ") { path ->
+                            val relPath = "photos/${File(path).name}"
+                            """<a href="$relPath"><img src="$relPath" width="$THUMBNAIL_WIDTH_PX" /></a>"""
+                        }
+                    )
+                }
+                writer.write("| ${cells.joinToString(" | ")} |\n")
+            }
+        }
+
+        return if (includePhotos && items.any { it.imagePaths.isNotEmpty() }) {
+            createZipWithPhotos(mdFile, items, exportDir, baseFileName)
+        } else {
+            mdFile.absolutePath
+        }
+    }
+
+    private fun escapeMarkdown(value: String): String {
+        return value.replace("|", "\\|").replace("\n", " ").replace("\r", "")
     }
 
     private fun createZipWithPhotos(

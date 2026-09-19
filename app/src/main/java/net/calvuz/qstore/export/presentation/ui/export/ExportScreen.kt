@@ -107,6 +107,20 @@ fun ExportScreen(
                         modifier = Modifier.padding(start = 8.dp)
                     )
                 }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    RadioButton(
+                        selected = uiState.selectedFormat == ExportFormat.MARKDOWN,
+                        onClick = { viewModel.setFormat(ExportFormat.MARKDOWN) }
+                    )
+                    Text(
+                        text = "Markdown (.md)",
+                        modifier = Modifier.padding(start = 8.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -190,6 +204,7 @@ private fun shareFile(context: android.content.Context, filePath: String) {
         type = when {
             filePath.endsWith(".csv") -> "text/csv"
             filePath.endsWith(".xlsx") -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            filePath.endsWith(".md") -> "text/markdown"
             filePath.endsWith(".zip") -> "application/zip"
             else -> "*/*"
         }

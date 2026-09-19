@@ -2,7 +2,8 @@ package net.calvuz.qstore.export.domain.model
 
 enum class ExportFormat {
     CSV,
-    EXCEL
+    EXCEL,
+    MARKDOWN
 }
 
 data class ExportOptions(

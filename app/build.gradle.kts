@@ -23,10 +23,10 @@ android {
     defaultConfig {
         applicationId = "net.calvuz.quickstore"
         minSdk = 33
-        targetSdk = 35
+        targetSdk = 36
 
-        versionCode = 8
-        versionName = "1.6.8"
+        versionCode = 9
+        versionName = "1.6.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
