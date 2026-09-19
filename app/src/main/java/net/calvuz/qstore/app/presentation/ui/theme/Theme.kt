@@ -6,7 +6,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -102,7 +101,13 @@ fun QuickStoreTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
+            // Niente più window.statusBarColor (deprecato, e comunque già un no-op su
+            // Android 15+: da API 35 l'edge-to-edge è imposto dal sistema e ignora questa
+            // proprietà — verificato: il colore che ci si aspetterebbe qui (arancio,
+            // colorScheme.primary) non compariva affatto sulla status bar reale).
+            // La status bar resta trasparente, quindi mostra ciò che Compose disegna sotto
+            // (già edge-to-edge grazie a MainActivity.setDecorFitsSystemWindows(false)) — solo
+            // l'icona chiara/scura della status bar resta da gestire qui.
             WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }

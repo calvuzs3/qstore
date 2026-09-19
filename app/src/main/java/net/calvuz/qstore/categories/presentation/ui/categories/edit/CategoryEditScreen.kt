@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import net.calvuz.qstore.app.presentation.ui.common.QsTextButton as TextButton
@@ -156,7 +157,7 @@ fun CategoryEditScreen(
                         label = { Text("Note") },
                         placeholder = { Text("Note aggiuntive") },
                         leadingIcon = {
-                            Icon(Icons.Default.Notes, contentDescription = null)
+                            Icon(Icons.AutoMirrored.Default.Notes, contentDescription = null)
                         },
                         minLines = 2,
                         maxLines = 4

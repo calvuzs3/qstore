@@ -215,7 +215,7 @@ private fun AddArticleContent(
                     ExposedDropdownMenuDefaults.TrailingIcon(expanded = showCategoryDropdown)
                 },
                 modifier = Modifier
-                    .menuAnchor()
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                     .fillMaxWidth()
             )
 
@@ -281,7 +281,7 @@ private fun AddArticleContent(
                 },
                 singleLine = true,
                 modifier = Modifier
-                    .menuAnchor()
+                    .menuAnchor(MenuAnchorType.PrimaryEditable)
                     .fillMaxWidth()
             )
 

@@ -6,6 +6,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import net.calvuz.qstore.app.data.local.storage.ImageStorageManager
 import net.calvuz.qstore.app.domain.repository.ArticleRepository
 import net.calvuz.qstore.app.domain.repository.ImageRecognitionRepository
 import net.calvuz.qstore.app.domain.repository.InventoryRepository
@@ -30,7 +31,8 @@ class ExportRepositoryImpl @Inject constructor(
     private val articleRepository: ArticleRepository,
     private val inventoryRepository: InventoryRepository,
     private val categoryRepository: ArticleCategoryRepository,
-    private val imageRecognitionRepository: ImageRecognitionRepository
+    private val imageRecognitionRepository: ImageRecognitionRepository,
+    private val imageStorageManager: ImageStorageManager
 ) : ExportRepository {
 
     private val excelWriter = SimpleExcelWriter()
@@ -74,7 +76,8 @@ class ExportRepositoryImpl @Inject constructor(
             val imagePaths = if (includePhotos) {
                 imageRecognitionRepository.getArticleImages(article.uuid)
                     .getOrNull()
-                    ?.map { it.imagePath }
+                    ?.map { imageStorageManager.getFullPath(it.imagePath) }
+                    ?.filter { File(it).exists() }
                     ?: emptyList()
             } else {
                 emptyList()
@@ -131,7 +134,7 @@ class ExportRepositoryImpl @Inject constructor(
                     escapeCSV(item.notes)
                 )
                 if (includePhotos) {
-                    row.add(escapeCSV(item.imagePaths.joinToString(",")))
+                    row.add(escapeCSV(item.imagePaths.joinToString(",") { "photos/${File(it).name}" }))
                 }
                 writer.write(row.joinToString(";") + "\n")
             }
@@ -174,13 +177,14 @@ class ExportRepositoryImpl @Inject constructor(
                 item.notes
             )
             if (includePhotos) {
-                row.add(item.imagePaths.joinToString(", "))
+                row.add(item.imagePaths.joinToString(", ") { "photos/${File(it).name}" })
             }
             row
         }
 
         val excelFile = File(exportDir, "$baseFileName.xlsx")
-        excelWriter.writeExcel(excelFile, "Inventario", headers, rows)
+        val fotoColumn = if (includePhotos) headers.size - 1 else null
+        excelWriter.writeExcel(excelFile, "Inventario", headers, rows, hyperlinkColumn = fotoColumn)
 
         return if (includePhotos && items.any { it.imagePaths.isNotEmpty() }) {
             createZipWithPhotos(excelFile, items, exportDir, baseFileName)

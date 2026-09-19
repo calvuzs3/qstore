@@ -13,12 +13,32 @@ import java.util.zip.ZipOutputStream
  */
 class SimpleExcelWriter {
 
+    /**
+     * @param hyperlinkColumn indice colonna (0-based) i cui valori vanno resi cliccabili come
+     * link relativo esterno (es. la colonna "Foto" -> "photos/xyz.jpg", sibling dello .xlsx una
+     * volta estratto lo zip che li contiene entrambi). Una cella con più valori separati da
+     * virgola (più foto) non viene linkata: un singolo link non potrebbe rappresentarle tutte.
+     */
     fun writeExcel(
         file: File,
         sheetName: String,
         headers: List<String>,
-        rows: List<List<Any?>>
+        rows: List<List<Any?>>,
+        hyperlinkColumn: Int? = null
     ) {
+        val hyperlinks: List<Pair<String, String>> = if (hyperlinkColumn != null) {
+            rows.mapIndexedNotNull { rowIndex, row ->
+                val value = row.getOrNull(hyperlinkColumn) as? String
+                if (value != null && value.isNotEmpty() && !value.contains(",")) {
+                    getCellRef(hyperlinkColumn, rowIndex + 1) to value
+                } else {
+                    null
+                }
+            }
+        } else {
+            emptyList()
+        }
+
         ZipOutputStream(FileOutputStream(file)).use { zip ->
             // [Content_Types].xml
             zip.putNextEntry(ZipEntry("[Content_Types].xml"))
@@ -54,8 +74,15 @@ class SimpleExcelWriter {
 
             // xl/worksheets/sheet1.xml
             zip.putNextEntry(ZipEntry("xl/worksheets/sheet1.xml"))
-            zip.write(sheetXml(headers, rows, stringIndex).toByteArray())
+            zip.write(sheetXml(headers, rows, stringIndex, hyperlinks).toByteArray())
             zip.closeEntry()
+
+            if (hyperlinks.isNotEmpty()) {
+                // xl/worksheets/_rels/sheet1.xml.rels
+                zip.putNextEntry(ZipEntry("xl/worksheets/_rels/sheet1.xml.rels"))
+                zip.write(sheetRelsXml(hyperlinks).toByteArray())
+                zip.closeEntry()
+            }
         }
     }
 
@@ -137,11 +164,12 @@ class SimpleExcelWriter {
     private fun sheetXml(
         headers: List<String>,
         rows: List<List<Any?>>,
-        stringIndex: Map<String, Int>
+        stringIndex: Map<String, Int>,
+        hyperlinks: List<Pair<String, String>>
     ): String {
         val sb = StringBuilder()
         sb.append("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>""")
-        sb.append("""<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">""")
+        sb.append("""<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">""")
         
         // Column widths
         sb.append("<cols>")
@@ -200,7 +228,29 @@ class SimpleExcelWriter {
         }
 
         sb.append("</sheetData>")
+
+        if (hyperlinks.isNotEmpty()) {
+            sb.append("<hyperlinks>")
+            hyperlinks.forEachIndexed { index, (cellRef, _) ->
+                sb.append("""<hyperlink ref="$cellRef" r:id="rId${index + 1}"/>""")
+            }
+            sb.append("</hyperlinks>")
+        }
+
         sb.append("</worksheet>")
+        return sb.toString()
+    }
+
+    private fun sheetRelsXml(hyperlinks: List<Pair<String, String>>): String {
+        val sb = StringBuilder()
+        sb.append("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>""")
+        sb.append("""<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">""")
+        hyperlinks.forEachIndexed { index, (_, target) ->
+            sb.append(
+                """<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="${escapeXml(target)}" TargetMode="External"/>"""
+            )
+        }
+        sb.append("</Relationships>")
         return sb.toString()
     }
 
